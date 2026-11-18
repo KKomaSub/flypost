@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import valleyUrl from './assets/postal-valley.webp';
 
 const hex = value => Number.parseInt(value.slice(1), 16);
 const wrap = (value, period) => ((value % period) + period) % period;
@@ -29,6 +30,7 @@ const skyStrips = Object.fromEntries(Object.entries(skyThemes).map(([key, colors
   });
   return [key, strips];
 }));
+const planeFold = [{x:32,y:0}, {x:-21,y:-16}, {x:-8,y:0}, {x:-21,y:16}];
 const obstacleIcons = {
   cat: '◆', line: '⌁', bird: '⌄', kite: '◇', balloon: '◉', window: '▦', carwind: '»', alleywind: '»',
 };
@@ -71,9 +73,12 @@ class Airfield extends Phaser.Scene {
 
   preload() {
     this.options.progress(.82, '하늘 그리는 중');
+    this.load.image('postal-valley', valleyUrl);
   }
 
   create() {
+    this.panorama = this.textures.exists('postal-valley')
+      ? this.add.image(0, 0, 'postal-valley').setOrigin(0) : null;
     this.backdrop = this.add.graphics();
     this.terrain = this.add.graphics();
     this.details = this.add.graphics();
@@ -130,6 +135,19 @@ class Airfield extends Phaser.Scene {
     const camera = view.playing ? view.cameraX : 0;
     const ground = view.playing ? view.project(0, 0).y : h * .83;
     const sky = this.backdrop.clear();
+    if (this.panorama) {
+      const photo = this.panorama;
+      const scale = Math.max(h / photo.height, w * 1.09 / photo.width);
+      const dw = scale * photo.width, dh = scale * photo.height;
+      const pan = view.playing ? .36 + .32 * (1 - Math.exp(-camera / 480)) : .59;
+      const y = view.playing ? clamp(ground - dh * .865, h - dh, 0) : (h - dh) * .66;
+      photo.setPosition((w - dw) * pan, y).setScale(scale);
+      if (rainy && view.playing) sky.fillStyle(0x2d5578, .21).fillRect(0, 0, w, h);
+      if (sunset && view.playing) sky.fillStyle(0xe39263, .16).fillRect(0, 0, w, h);
+      this.terrain.clear();
+      if (view.playing) this.drawMeadow(this.terrain, w, h, ground, camera, view.scale);
+      return;
+    }
     // Solid color strips are supported by both renderers.
     skyStrips[theme].forEach((color, i) => {
       sky.fillStyle(color).fillRect(0, Math.floor(h * i / 30), w, Math.ceil(h / 30) + 1);
@@ -162,11 +180,29 @@ class Airfield extends Phaser.Scene {
     }
   }
 
+  drawMeadow(g, w, h, ground, camera, scale) {
+    if (ground > h || ground < -25) return;
+    const rim = Math.max(0, ground);
+    // A shallow ledge ties the collision surface to the painted far hills.
+    g.fillStyle(0x637c43, .83).fillRect(0, rim + 3, w, Math.min(23, h - rim));
+    g.fillStyle(0x365640, .42).fillRect(0, rim + 22, w, Math.max(0, h - rim - 22));
+    g.lineStyle(2, 0xc7cc75, .93).lineBetween(0, rim + 2, w, rim + 2);
+    g.lineStyle(1.5, 0x314d3b, .7).lineBetween(0, rim + 7, w, rim + 7);
+    const shift = camera * scale;
+    for (let index = Math.floor(shift / 17); index < Math.floor((shift + w) / 17) + 2; index++) {
+      const x = index * 17 - shift;
+      const height = 4 + wrap(index * 29, 7);
+      g.lineStyle(1.3, index % 3 ? 0x97ac60 : 0xcbd078, .75)
+        .lineBetween(x, rim + 5, x + (index % 2 ? 3 : -3), rim + 5 - height);
+      if (index % 5 === 1) g.fillStyle(0xffe8a4, .92).fillCircle(x + 3, rim + 5 - height, 2);
+    }
+  }
+
   drawHangar(w, h) {
     const g = this.details.clear();
     this.weather.clear();
     const portrait = h > w;
-    const x = w * (portrait ? .67 : .29), y = h * (portrait ? .25 : .40);
+    const x = w * (portrait ? .63 : .50), y = h * (portrait ? .22 : .27);
     const size = clamp(Math.min(w, h) / 95, 3.2, 7.2);
     const drift = this.planeDrift;
     this.drawAircraft(x + drift * 12, y - drift * 13, -.22 - drift * .035, size, 0xfff0d9, 0xa4c6de);
@@ -175,16 +211,18 @@ class Airfield extends Phaser.Scene {
       const dx = i * 17;
       g.lineBetween(x - size * 17 - dx, y + 23 + dx * .34, x - size * 17 - dx - 7, y + 25 + dx * .34);
     }
-    postOffice(g, w * .15, h * .86, clamp(h * .14, 48, 125));
+    if (!this.panorama) postOffice(g, w * .15, h * .86, clamp(h * .14, 48, 125));
   }
 
   drawAircraft(x, y, angle, scale, tint, accent, view = {}) {
     const g = this.aircraft.clear().setPosition(x, y).setRotation(angle).setScale(scale);
     g.fillStyle(0x163244, .22).fillTriangle(31, 6, -22, -9, -16, 19);
     if (view.engineLevel) g.fillStyle(0xffbc62, .95).fillTriangle(-13, 0, -27 - view.engineLevel, -5, -29, 5);
+    g.lineStyle(2, 0x2f554f, .93).strokePoints(planeFold, true);
     g.fillStyle(tint).fillTriangle(32, 0, -21, -16, -8, 0);
     g.fillStyle(accent).fillTriangle(32, 0, -8, 0, -21, 16);
-    g.fillStyle(tint, .76).fillTriangle(32, 0, -18, 10, -4, 0);
+    g.fillStyle(tint, .86).fillTriangle(32, 0, -18, 10, -4, 0);
+    g.lineStyle(.8, 0xfde8ba).lineBetween(-20, -15, 30, 0);
     g.lineStyle(1.3, 0x29485f, .75).lineBetween(32, 0, -8, 0).lineBetween(-8, 0, -21, -16);
     if (view.wingLevel) g.lineStyle(1.7, 0x46d2d0).lineBetween(-15, -10, 10, -3);
     if (view.armorLevel) g.lineStyle(1.7, 0x76e0ca, .7).strokeEllipse(0, 0, 58, 35);
@@ -195,7 +233,9 @@ class Airfield extends Phaser.Scene {
     const g = this.details.clear();
     const particles = this.weather.clear();
     const origin = project(0, 0);
-    if (origin.x > -110 && origin.x < w + 110) postOffice(g, origin.x, origin.y, 67);
+    if (origin.x > -110 && origin.x < w + 110) {
+      postOffice(g, origin.x - 31, origin.y, clamp(Math.min(w, h) * .098, 34, 66));
+    }
 
     if (mission) {
       this.drawMission(g, w, h, view, t);
@@ -228,7 +268,7 @@ class Airfield extends Phaser.Scene {
       }
     }
     const p = flight ? project(flight.x, Math.max(0, flight.y)) : project(0, 3);
-    if (plane) this.drawAircraft(p.x, p.y, view.planeAngle, 1, hex(plane.color), hex(plane.accent), view);
+    if (plane) this.drawAircraft(p.x, p.y, view.planeAngle, w < 450 ? .91 : 1.07, hex(plane.color), hex(plane.accent), view);
     else this.aircraft.clear();
   }
 
@@ -237,12 +277,19 @@ class Airfield extends Phaser.Scene {
     for (const zone of mission.zones) {
       const p = project(zone.x, 0), width = zone.w * scale;
       if (p.x + width < 0 || p.x > w) continue;
-      const tint = zone.kind === 'up' ? 0x67e0eb : 0xb99be8;
-      const height = Math.min(h, 135 * scale);
-      g.fillStyle(tint, .14).fillRect(p.x, p.y - height, width, height);
-      g.lineStyle(1, tint, .57).lineBetween(p.x, p.y - height, p.x, p.y)
-        .lineBetween(p.x + width, p.y - height, p.x + width, p.y);
-      this.label(zone.kind === 'up' ? '↑' : '↓', p.x + width / 2, p.y - height * .44, '#eafcff');
+      const up = zone.kind === 'up';
+      const tint = up ? 0xe0fff1 : 0xe8d5f5;
+      const height = Math.min(h * .65, 135 * scale);
+      const start = Math.max(0, p.x);
+      const end = Math.min(w, p.x + width);
+      for (let x = start + 12; x < end - 4; x += 24) {
+        const y = p.y - wrap(t * (up ? 37 : -37) + x * .83, height);
+        const direction = up ? 1 : -1;
+        g.lineStyle(1.5, tint, .63).lineBetween(x - 4, y + 5 * direction, x, y)
+          .lineBetween(x, y, x + 4, y + 5 * direction);
+      }
+      const center = p.x + width / 2;
+      if (center > 30 && center < w - 30) this.label(up ? '↑' : '↓', center, p.y - height * .44, '#f0ffec');
     }
 
     for (const obstacle of mission.obstacles) {
@@ -273,19 +320,32 @@ class Airfield extends Phaser.Scene {
     const exact = mission.type === 'accuracy';
     const goal = exact ? mission.target : mission.goal;
     const p = project(goal, 0);
-    if (p.x < 0 || p.x > w) return;
-    const top = clamp(p.y - (exact ? 115 : 137), 60, h - 80);
-    for (let y = top; y < p.y - 28; y += 10) g.lineStyle(2, 0xffdb9f, .8).lineBetween(p.x, y, p.x, y + 5);
+    if (p.x < 30 || p.x > w - 30 || p.y > h - 35) {
+      const x = clamp(p.x, 46, w - 46);
+      const y = clamp(p.y - 122, h * .47, h - 154);
+      const arrow = p.x < 30 ? '‹' : p.x > w - 30 ? '›' : '↓';
+      g.fillStyle(0x2c5145, .92).fillRoundedRect(x - 42, y - 12, 84, 24, 10);
+      g.lineStyle(1, 0xffedd0, .8).strokeRoundedRect(x - 42, y - 12, 84, 24, 10);
+      this.label(arrow + '  ' + goal + 'm', x, y, '#fff3d4');
+      return;
+    }
+    const top = clamp(p.y - 92, 97, Math.max(97, p.y - 45));
+    const marker = exact ? 0xc45e44 : 0x387b65;
+    const glow = .85 + .15 * Math.sin(t * 4);
+    g.lineStyle(2, 0xfff0bd, .92).lineBetween(p.x, top + 8, p.x, p.y - 2);
+    g.fillStyle(marker).fillTriangle(p.x, top + 8, p.x + 25, top + 13, p.x, top + 23);
+    g.fillStyle(0x304e45, .95).fillRoundedRect(p.x - 34, top - 12, 68, 22, 9);
+    g.lineStyle(1, 0xffe8af).strokeRoundedRect(p.x - 34, top - 12, 68, 22, 9);
+    this.label(goal + 'm', p.x, top - 1);
     if (exact) {
-      g.fillStyle(0x6d465a, .35).fillEllipse(p.x, p.y + 5, 57, 20);
-      for (const [r, color] of [[25, 0xfff2d8], [20, 0xcf5e60], [14, 0xfff3da], [8, 0xc64d55]]) {
-        g.fillStyle(color).fillCircle(p.x, p.y - 4, r);
+      g.fillStyle(0x304939, .53).fillEllipse(p.x, p.y + 3, 71, 23);
+      for (const [width, height, color] of [[64, 21, 0xffedc0], [49, 16, 0xd96c49], [33, 11, 0xffedc0], [17, 6, 0xd96c49]]) {
+        g.fillStyle(color).fillEllipse(p.x, p.y, width, height);
       }
-      this.label('목표 ' + goal + 'm', p.x, p.y - 41);
+      g.fillStyle(0xffe4a1, glow).fillCircle(p.x - 34, p.y + 2, 2.5).fillCircle(p.x + 34, p.y + 2, 2.5);
     } else {
-      g.lineStyle(3, 0xffe3ac).lineBetween(p.x, top, p.x, p.y + 4);
-      g.fillStyle(0xee8a62).fillTriangle(p.x + 2, top + 2, p.x + 35, top + 11, p.x + 2, top + 23);
-      this.label(goal + 'm', p.x, top - 11);
+      g.fillStyle(0xffedc0).fillRoundedRect(p.x - 19, p.y - 4, 39, 8, 3);
+      for (const dx of [-11, 1, 13]) g.fillStyle(marker).fillRect(p.x + dx, p.y - 4, 5, 8);
     }
   }
 }

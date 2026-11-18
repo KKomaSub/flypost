@@ -31,14 +31,14 @@ export function createTutorial({ getState, save, closeMenu, canShow, isLobby, me
 
   const lessons = {
     start: { area: '.lobby-panel', pointer: '#lobbyStart', shade: true },
-    setup: { area: '#readyFlight', icon: '✈', title: '발사 준비' },
-    flight: { area: '.flight-controls', icon: '↗', title: '비행 중 보정', text: '화살표로 방향을 보정하고, 제동으로 속도를 줄여요.' },
+    setup: { area: '#mission summary', below: true, icon: '✈', title: '발사 준비' },
+    flight: { area: '#mission summary', below: true, icon: '↗', title: '비행 중 보정', text: '화살표로 방향을 보정하고, 제동으로 속도를 줄여요.' },
   };
   const tips = {
     shop: { area: '#dock', icon: '✈', title: '격납고', text: '잠금이 풀린 기체를 구매하면 바로 선택돼요.' },
     insurance: { area: '#dock', icon: '🛡', title: '배송 보험', text: '비행마다 보험료를 내고 사고 손실의 70%를 보전받아요.' },
     express: { area: '#lobbyExpress', icon: '⚡', title: '특급 배송', text: '14초 이내에 4★ 이상이면 보수 +35%. 실패하면 위약금이 있어요.' },
-    route: { area: '#readyFlight', icon: '⚑', title: '장거리 배송', text: '착륙 위치보다 얼마나 멀리 날았는지가 중요해요.' },
+    route: { area: '#mission summary', below: true, icon: '⚑', title: '장거리 배송', text: '착륙 위치보다 얼마나 멀리 날았는지가 중요해요.' },
   };
 
   function clear() {
@@ -94,15 +94,17 @@ export function createTutorial({ getState, save, closeMenu, canShow, isLobby, me
     if (!lesson.title) return;
     const clipped = { left, top, right, bottom };
     const size = { width: card.offsetWidth, height: card.offsetHeight };
-    const gap = key === 'setup' || key === 'route' ? Math.min(88, innerHeight * .105) : 13;
-    const pos = guidePosition(clipped, { width: innerWidth, height: innerHeight }, size, gap);
+    const pos = lesson.below
+      ? { left: key === 'flight' && innerWidth > innerHeight
+        ? innerWidth - size.width - 13 : Math.max(12, left), top: bottom + 6 }
+      : guidePosition(clipped, { width: innerWidth, height: innerHeight }, size);
     card.style.left = pos.left + 'px';
     card.style.top = pos.top + 'px';
   }
 
   function sync() {
     if (!initialized) return;
-    if (!canShow()) {
+    if (!canShow() || !isLobby() && query('#mission').open) {
       clear();
       return;
     }

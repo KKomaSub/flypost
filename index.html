@@ -7,6 +7,7 @@
 <title>날아라 우편국</title>
 <link rel="stylesheet" href="/src/game.css">
 <link rel="stylesheet" href="/src/arcade.css">
+<link rel="stylesheet" href="/src/flight-ui.css">
 </head>
 <body class="booting">
 <section id="bootScreen" aria-label="게임 로딩">
@@ -26,10 +27,10 @@
    <div class="lobby-progress lobby-profile"><div class="profile-rank" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 2 21 6v7c0 5-9 9-9 9s-9-4-9-9V6z"/><path d="m12 6 1.5 3.1 3.5.5-2.5 2.5.6 3.4L12 14l-3.1 1.5.6-3.4L7 9.6l3.5-.5z" fill="currentColor" stroke="none"/></svg><b id="lobbyRank">LV.1</b></div><div class="progress-info"><div class="profile-caption"><strong id="rankLabel">우체부</strong><span id="rankXp">0 / 180 XP</span></div><div class="xp-track"><span id="rankXpFill"></span></div></div></div>
   </div>
   <div class="lobby-panel">
-   <div class="lobby-panel-head"><div><h2>오늘의 항로</h2></div><span class="lobby-chip" id="lobbyProgress">STAGE 01</span></div>
+
    <div class="mode-switch" id="modeSwitch"><button type="button" data-mode="random" class="active"><span>♾</span> 랜덤 모드</button><button type="button" data-mode="stage"><span>🏁</span> 스테이지</button></div>
-   <div class="lobby-mode-body" id="lobbyRandom"><b>☁ 자유 배송</b><span>무작위 항로 · 3판</span></div>
-   <div class="lobby-mode-body" id="lobbyStage" hidden><div class="stage-picker"><button type="button" id="stagePrev" aria-label="이전 스테이지">‹</button><div><small>STAGE</small><strong id="stageNumber">01</strong><span id="stageName">햇살 평원</span></div><button type="button" id="stageNext" aria-label="다음 스테이지">›</button></div><div class="stage-stars" id="stageStars">☆☆☆</div><div class="lobby-line" id="stageDesc">별점 3개 이상으로 다음 스테이지 해금</div></div>
+   <div id="lobbyRandom" class="sr-only">무작위 항로 · 3판</div>
+   <div class="lobby-mode-body" id="lobbyStage" hidden><div class="stage-picker"><button type="button" id="stagePrev" aria-label="이전 스테이지">‹</button><div><small>STAGE</small><strong id="stageNumber">01</strong><span id="stageName">햇살 평원</span></div><button type="button" id="stageNext" aria-label="다음 스테이지">›</button></div><div class="stage-stars" id="stageStars">☆☆☆</div><div class="lobby-line" id="stageDesc">별점 3개 이상으로 다음 스테이지 해금</div><span class="lobby-chip sr-only" id="lobbyProgress">STAGE 01</span></div>
    <button type="button" id="lobbyExpress" class="lobby-express" aria-pressed="false"><span>⚡ 특급 배송</span><b id="lobbyExpressState">OFF</b></button><div id="lobbyStreak" class="lobby-express streak-widget" role="group" aria-label="배달 연승"><span class="streak-label">연승</span><div id="streakTrack" class="streak-track" role="progressbar" aria-label="연승 보상 진행" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div><div id="streakFlame" class="streak-flame"><svg viewBox="0 0 40 48" aria-hidden="true"><path d="M22 1c4 13-2 16 4 20 3-4 4-8 4-8 13 15 9 34-10 34C1 47-4 28 9 17c-1 8 3 10 5 10C9 15 20 13 22 1Z" fill="currentColor"/><path d="M21 23c-1 9-9 9-8 15 0 6 13 8 15 0 1-5-5-9-7-15Z" fill="#ffe9a5"/></svg><strong id="streakCount">0</strong></div></div><button type="button" id="lobbyStart" class="lobby-start"><span>비행 시작</span><span>➜</span></button>
    <div class="lobby-actions"><button id="lobbyParts" type="button">⚙ 부품 · 강화</button><button id="lobbyShop" type="button">🎁 상점 · 뽑기<span class="plane-new-badge" id="lobbyShopNew" hidden>NEW</span></button><button id="lobbyPrepare" type="button">✈ 비행</button></div>
    <div class="lobby-footer"><span id="lobbyDebt">빚 0원</span><span id="lobbyClears">클리어 0</span></div>
@@ -43,7 +44,7 @@
 </aside>
 <div id="cloudCurtain" aria-hidden="true"><div class="cloud-pane left"></div><div class="cloud-pane right"></div><span>☁ 하늘로 출발 ☁</span></div>
 <div id="app">
- <header class="hud">
+ <header class="hud sr-only" aria-label="우체국 상태">
   <div class="stat"><small>보유금</small><strong id="money">1,200원</strong></div>
   <div class="stat"><small>평균</small><strong id="average">3.00★</strong></div>
   <div class="stat"><small>평판</small><strong id="reputation">보통</strong></div>
@@ -53,32 +54,42 @@
  </header>
  <main id="stage">
   <div id="world" aria-hidden="true"></div><div id="damagePulse" aria-hidden="true"></div>
-  <section class="mission" id="mission">
-   <div class="mission-top"><span class="mission-name" id="missionName">우편이 도착합니다</span><span class="mission-type" id="missionType">대기</span></div>
-   <div class="mission-desc" id="missionDesc">종이비행기로 편지와 소포를 배달해 주세요.</div>
-   <div class="mission-criteria" id="missionCriteria">현재 판정 기준이 여기에 표시됩니다.</div>
-  </section>
-  <div id="windHint">☀️ 기본 예보</div><div id="deliveryPill" class="delivery-pill">배송 1 / 3</div>
-  <div class="scene-tools" aria-label="게임 화면 가로 이동">
-   <button id="viewLeft" title="왼쪽으로 빠르게 이동" aria-label="왼쪽 화면 이동">‹</button>
-   <button id="viewHome" title="비행기 또는 처음 위치로" aria-label="비행기 위치로 돌아가기">◎</button>
-   <button id="viewRight" title="오른쪽으로 빠르게 이동" aria-label="오른쪽 화면 이동">›</button>
-   <button id="quickMap" title="무료 지도 무제한" aria-label="무료 지도 바로 보기">🗺️ 지도</button><button id="lobbyHome" title="메인 화면" aria-label="메인 화면">⌂</button>
+  <div class="route-hud">
+   <div class="route-objective">
+    <span id="routeIcon" class="route-icon" aria-hidden="true">◎</span>
+    <div><span id="missionType" class="mission-type">정확 배달</span><strong id="readyGoalChip">—</strong></div>
+   </div>
+   <div class="route-score">
+    <span id="deliveryPill" class="delivery-pill">배송 1 / 3</span>
+    <div class="round-marks" aria-hidden="true"><i></i><i></i><i></i></div>
+   </div>
+  </div>
+  <div class="flight-toolbar" aria-label="항로와 메뉴">
+   <button id="quickMap" type="button" title="무료 지도 무제한" aria-label="무료 지도 바로 보기">⌘ <span>지도</span></button>
+   <button id="lobbyHome" type="button" aria-label="메인 화면">⌂</button>
+  </div>
+  <details class="mission" id="mission">
+   <summary aria-label="의뢰 정보"><span id="windHint">☀️ 맑음</span><span class="detail-knob" aria-hidden="true">▾</span></summary>
+   <div class="mission-sheet"><strong id="missionName">우편 의뢰</strong><span id="missionDesc"></span><span id="missionCriteria"></span></div>
+  </details>
+  <div class="scene-tools" aria-label="카메라 조작">
+   <button id="viewLeft" type="button" aria-label="왼쪽 화면 이동">‹</button>
+   <button id="viewHome" type="button" aria-label="비행기 위치로 돌아가기">◎</button>
+   <button id="viewRight" type="button" aria-label="오른쪽 화면 이동">›</button>
   </div>
   <section id="readyFlight" class="ready-flight round-prep" aria-label="매 판 비행 준비">
-    <div class="round-prep-head">
-      <div class="round-prep-title"><span class="prep-index" id="readyTitle">배송 1 / 3</span><b id="readyScenario">새로운 항로</b><small id="readyDetail">의뢰 확인 중</small></div>
-      <span id="readyGoalChip" class="prep-goal-chip">목표 확인</span>
+    <div class="round-prep-head sr-only">
+      <span id="readyTitle">배송 1 / 3</span><span id="readyScenario"></span><span id="readyDetail"></span>
     </div>
     <div class="round-prep-main">
       <div class="prep-plane-area">
-        <span class="prep-label">✈ 비행기</span>
+        <span class="prep-label sr-only">비행기</span>
         <div class="prep-plane-switch"><button type="button" id="readyPlanePrev" aria-label="이전 보유 비행기">‹</button><div class="prep-plane-middle"><b id="readyPlaneName">기본 종이비행기</b><small id="readyPlaneStats">내구도 · 성능</small></div><button type="button" id="readyPlaneNext" aria-label="다음 보유 비행기">›</button></div>
       </div>
-      <div class="prep-tuning"><div class="prep-label"><span>발사 각도</span><b id="readyAngleValue">38°</b></div><input id="readyAngle" type="range" min="6" max="78" step="1" value="38" aria-label="이번 판 발사 각도"></div>
-      <div class="prep-tuning"><div class="prep-label"><span>발사 힘</span><b id="readyPowerValue">72%</b></div><input id="readyPower" type="range" min="20" max="100" step="1" value="72" aria-label="이번 판 발사 힘"></div>
+      <div class="prep-tuning"><div class="prep-label"><span>각도</span><b id="readyAngleValue">38°</b></div><input id="readyAngle" type="range" min="6" max="78" step="1" value="38" aria-label="이번 판 발사 각도"></div>
+      <div class="prep-tuning"><div class="prep-label"><span>힘</span><b id="readyPowerValue">72%</b></div><input id="readyPower" type="range" min="20" max="100" step="1" value="72" aria-label="이번 판 발사 힘"></div>
     </div>
-    <div class="prep-footer"><span class="prep-tip" id="readyRoundTip">날리기 전에 비행기와 각도, 힘을 바꿀 수 있습니다</span><button id="battleLaunch" class="big-btn">날리기 <span>✈</span></button></div>
+    <div class="prep-footer"><span class="sr-only" id="readyRoundTip"></span><button id="battleLaunch" type="button" class="big-btn"><span aria-hidden="true">➤</span> 발사</button></div>
   </section>
   <div class="result" id="result">
    <div class="result-head"><strong id="resultTitle">배달 완료!</strong><span class="result-stars" id="resultStars">★★★★★</span></div>
@@ -92,8 +103,17 @@
   <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
   <div class="arcade-toast" id="arcadeToast" aria-live="polite"></div>
   <div class="flight-controls">
-   <div class="flight-info" id="flightInfo">비행 중 · 방향으로 보정</div>
-   <button id="leftBtn" aria-label="왼쪽 보정">←</button><button id="upBtn" aria-label="상승 보정">↑</button><button id="downBtn" aria-label="하강 보정">↓</button><button id="rightBtn" aria-label="오른쪽 보정">→</button><button id="brakeBtn" aria-label="에어 브레이크">⤓ 제동</button>
+   <div class="flight-pad" aria-label="방향 보정">
+    <button id="upBtn" type="button" aria-label="상승 보정">↑</button><button id="leftBtn" type="button" aria-label="왼쪽 보정">←</button>
+    <span class="pad-center" aria-hidden="true">✧</span>
+    <button id="rightBtn" type="button" aria-label="오른쪽 보정">→</button><button id="downBtn" type="button" aria-label="하강 보정">↓</button>
+   </div>
+   <div class="flight-telemetry">
+    <strong id="flightDistance">0m</strong>
+    <div id="correctionPips" role="img" aria-label="방향 보정 5회"><i></i><i></i><i></i><i></i><i></i></div>
+    <span class="sr-only" id="flightInfo"></span>
+   </div>
+   <button id="brakeBtn" type="button" aria-label="에어 브레이크"><b>⇣</b><span>제동</span></button>
   </div>
  </main>
  <section class="dock" id="dock">
