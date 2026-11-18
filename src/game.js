@@ -86,7 +86,7 @@ function sfx(type){
   audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended')audioCtx.resume();
   if(!audioBus){audioBus=audioCtx.createGain();audioBus.gain.value=.38;const limiter=audioCtx.createDynamicsCompressor();limiter.threshold.value=-20;limiter.ratio.value=8;audioBus.connect(limiter).connect(audioCtx.destination);}
-  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],parcelSort:[[196,.27],[247,.28],[294,.28],[392,.25]],parcelOpen:[[466,.13],[622,.23]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
+  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],parcelSort:[[196,.32],[247,.31],[294,.28],[392,.27],[466,.25],[523,.24]],parcelOpen:[[466,.13],[622,.23]],parcelPress:[[137,.10],[195,.08]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
   const start=audioCtx.currentTime;let pos=0;
   for(const [freq,dur] of patterns[type]||patterns.event){
    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type==='hit'?'triangle':'sine';osc.frequency.setValueAtTime(freq,start+pos);
@@ -109,22 +109,22 @@ function rollLoot(mult=1,positiveOnly=false){
   const icon=major?'🚨':'📨';
   pay(cost,title); state.finance.lossEvents++; flashLoss();
   banner('⚠️ 뽑기에서 손실 발생 · '+money(cost));
-  return{icon,title,text:`-${money(cost)} · 현금 부족 시 자동으로 대출이 발생합니다.`,tier:'loss',loss:cost}
+  return{icon,title,text:`-${money(cost)} · 현금 부족 시 자동으로 대출이 발생합니다.`,tier:'loss',loss:cost,note:'현금 부족 시 자동 대출'}
  }
  const roll=Math.random(),tier=roll<.56?'common':roll<.84?'rare':roll<.96?'epic':'legendary',lv=level();let reward;
  if(tier==='common'){
-  const k=Math.random();if(k<.48){const amount=Math.floor(rng(320,700)+lv*35)*mult;credit(amount,'뽑기 · 작은 황금 봉투');reward={icon:'💰',title:'작은 황금 봉투',text:money(amount)+'을 받았습니다!'}}
+  const k=Math.random();if(k<.48){const amount=Math.floor(rng(320,700)+lv*35)*mult;credit(amount,'뽑기 · 작은 황금 봉투');reward={icon:'💰',title:'작은 황금 봉투',coins:amount,text:money(amount)+'을 받았습니다!'}}
   else if(k<.77){const s=selectedPlane(),old=s?.p.dur||0;if(s)s.p.dur=Math.min(s.p.maxDur,s.p.dur+3*mult);if(mult>1&&(s?.p.dur||0)>old){const overflow=3*mult-((s?.p.dur||0)-old);if(overflow>0)state.boosts.shield+=overflow;return {icon:'🛠️',title:'긴급 수리 키트',text:'내구도 '+((s?.p.dur||0)-old)+' 회복'+(overflow?' · 보호막 '+overflow+'개':''),tier}}reward=(s?.p.dur||0)>old?{icon:'🛠️',title:'긴급 수리 키트',text:'내구도 '+((s?.p.dur||0)-old)+' 회복'}:(state.boosts.shield+=mult,{icon:'🛡️',title:'수리 쿠폰 교환',text:'방어막 '+mult+'개 획득'})}
   else{state.boosts.shield+=mult;reward={icon:'🛡️',title:'충돌 방어막',text:'방어막 '+mult+'개 획득'}}
  }else if(tier==='rare'){
-  const k=Math.random();if(k<.48){const amount=Math.floor(rng(1000,2100)+lv*85)*mult;credit(amount,'뽑기 · 희귀 코인');reward={icon:'💎',title:'빛나는 코인 뭉치',text:money(amount)+'을 받았습니다!'}}
+  const k=Math.random();if(k<.48){const amount=Math.floor(rng(1000,2100)+lv*85)*mult;credit(amount,'뽑기 · 희귀 코인');reward={icon:'💎',title:'빛나는 코인 뭉치',coins:amount,text:money(amount)+'을 받았습니다!'}}
   else if(k<.78){state.boosts.tailwind+=2*mult;reward={icon:'🍀',title:'행운의 순풍',text:'순풍 '+2*mult+'회 · 발사 속도 +10%'}}
   else{state.boosts.shield+=2*mult;reward={icon:'🛡️',title:'강화 보호막',text:'방어막 '+2*mult+'개 획득'}}
  }else if(tier==='epic'){
-  if(Math.random()<.68){const amount=Math.floor(rng(3100,5500)+lv*140)*mult;credit(amount,'뽑기 · 영웅 보너스');reward={icon:'🌈',title:'프리미엄 우편 보너스',text:money(amount)+' 획득!'}}
+  if(Math.random()<.68){const amount=Math.floor(rng(3100,5500)+lv*140)*mult;credit(amount,'뽑기 · 영웅 보너스');reward={icon:'🌈',title:'프리미엄 우편 보너스',coins:amount,text:money(amount)+' 획득!'}}
   else{state.planeCoupons.stable=(state.planeCoupons.stable||0)+mult;reward={icon:'🎟️',title:'영웅 비행기 할인권',text:'안정형 우편비행기 50% 할인권 '+mult+'개 · Lv.'+planeUnlockLevels.stable+'부터 구매'}}
  }else{
-  if(Math.random()<.6){const amount=Math.floor(rng(9200,14500)+lv*360)*mult;credit(amount,'뽑기 · 전설 계약');reward={icon:'👑',title:'전설의 황금 계약',text:money(amount)+' 획득!'}}
+  if(Math.random()<.6){const amount=Math.floor(rng(9200,14500)+lv*360)*mult;credit(amount,'뽑기 · 전설 계약');reward={icon:'👑',title:'전설의 황금 계약',coins:amount,text:money(amount)+' 획득!'}}
   else{state.planeCoupons.carbon=(state.planeCoupons.carbon||0)+mult;reward={icon:'👑',title:'전설 비행기 할인권',text:'탄소섬유 종이비행기 50% 할인권 '+mult+'개 · Lv.'+planeUnlockLevels.carbon+'부터 구매'}}
  }
  return {...reward,tier}
@@ -637,6 +637,10 @@ function revealLoot(){
  const closeButton=$('#lootCloseBtn');
  const currentSave=state;
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const sortTime=1640;
+ const openTime=reduced?80:2460;
+ const stampDelay=reduced?60:660;
+ panel.style.setProperty('--sort-time',sortTime+'ms');
  openingLoot=true;
  delete panel.dataset.grade;
  panel.dataset.phase='opening';
@@ -647,6 +651,7 @@ function revealLoot(){
  $('#lootChest').textContent='';
  showLootText('#lootRarity','');
  showLootText('#lootTitle','');
+ showLootText('#lootValue','');
  showLootText('#lootMessage','');
  if(!reduced)sfx('parcelSort');
 
@@ -659,7 +664,7 @@ function revealLoot(){
   if(!stillOpening())return;
   panel.dataset.phase='pause';
   openButton.textContent='보상 확인 중';
- },1110);
+ },sortTime);
 
  setTimeout(()=>{
   if(!stillOpening())return;
@@ -672,7 +677,10 @@ function revealLoot(){
   panel.dataset.phase='reveal';
   $('#lootChest').textContent=reward.icon;
   showLootText('#lootTitle',reward.title);
-  showLootText('#lootMessage',reward.text);
+  const value=reward.loss?'-'+money(reward.loss):reward.coins?'+'+money(reward.coins):'';
+  $('#lootValue').toggleAttribute('data-loss',Boolean(reward.loss));
+  showLootText('#lootValue',value);
+  showLootText('#lootMessage',value?(reward.note||''):reward.text);
   if(!reduced)sfx('parcelOpen');
   addLog((epic?'에픽 상자 ':'상자 ')+lootGrades[reward.tier]+' 보상 · '+reward.title+' / '+reward.text);
   checkAchievements();
@@ -689,10 +697,11 @@ function revealLoot(){
    openButton.textContent=boxBalance()>0?'상자 하나 더 열기':'상자 없음';
    closeButton.disabled=false;
    lootParticles(reward.tier);
+   if(!reduced)sfx('parcelPress');
    sfx(reward.tier==='loss'?'hit':reward.tier==='common'?'win':reward.tier==='legendary'?'clear':'rare');
    if(document.activeElement===document.body)closeButton.focus({preventScroll:true});
-  },reduced?60:360);
- },reduced?80:1520);
+  },stampDelay);
+ },openTime);
 }
 // Preserve the existing underlying game engine while upgrading the relevant UI.
 const oldRenderOffice=renderOffice;
@@ -1232,6 +1241,7 @@ function openEpicOrNormal(mode='normal',automatic=false){
  $('#lootTypeName').textContent=epic?'에픽 상자':'행운 상자';
  showLootText('#lootRarity','');
  showLootText('#lootTitle','');
+ showLootText('#lootValue','');
  showLootText('#lootMessage',boxBalance()?'':'보유 상자 없음');
  $('#normalOdds').hidden=epic;
  $('#epicOdds').hidden=!epic;
