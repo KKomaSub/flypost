@@ -86,7 +86,7 @@ function sfx(type){
   audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended')audioCtx.resume();
   if(!audioBus){audioBus=audioCtx.createGain();audioBus.gain.value=.38;const limiter=audioCtx.createDynamicsCompressor();limiter.threshold.value=-20;limiter.ratio.value=8;audioBus.connect(limiter).connect(audioCtx.destination);}
-  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
+  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],parcelSort:[[196,.27],[247,.28],[294,.28],[392,.25]],parcelOpen:[[466,.13],[622,.23]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
   const start=audioCtx.currentTime;let pos=0;
   for(const [freq,dur] of patterns[type]||patterns.event){
    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type==='hit'?'triangle':'sine';osc.frequency.setValueAtTime(freq,start+pos);
@@ -629,47 +629,70 @@ function showLootText(selector,text){
  element.hidden=!text;
 }
 function revealLoot(){
- if(openingLoot||boxBalance()<=0||!$('#lootOverlay').classList.contains('show'))return;
+ const overlay=$('#lootOverlay');
+ if(openingLoot||boxBalance()<=0||!overlay.classList.contains('show'))return;
  const epic=lootMode==='epic';
  const panel=$('#lootWindow');
+ const openButton=$('#lootOpenBtn');
+ const closeButton=$('#lootCloseBtn');
+ const currentSave=state;
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  openingLoot=true;
  delete panel.dataset.grade;
  panel.dataset.phase='opening';
  $('#lootConfetti').replaceChildren();
- $('#lootOpenBtn').disabled=true;
- $('#lootOpenBtn').textContent='개봉 중';
- $('#lootCloseBtn').disabled=true;
+ openButton.disabled=true;
+ openButton.textContent='봉인 푸는 중';
+ closeButton.disabled=true;
  $('#lootChest').textContent='';
  showLootText('#lootRarity','');
  showLootText('#lootTitle','');
  showLootText('#lootMessage','');
- sfx('event');
+ if(!reduced)sfx('parcelSort');
+
+ function stillOpening(){
+  if(state===currentSave&&overlay.classList.contains('show'))return true;
+  openingLoot=false;
+  return false;
+ }
+ if(!reduced)setTimeout(()=>{
+  if(!stillOpening())return;
+  panel.dataset.phase='pause';
+  openButton.textContent='보상 확인 중';
+ },1110);
+
  setTimeout(()=>{
-  // The overlay may be removed when a save is restored or a delivery is reset.
-  if(!$('#lootOverlay').classList.contains('show')){openingLoot=false;return;}
+  if(!stillOpening())return;
   if(epic){
    state.epicCrates--;
    state.epicPending=Math.max(0,state.epicPending-1);
   }else state.crates--;
   state.openedCrates=(state.openedCrates||0)+1;
   const reward=epic?rollEpicLoot():rollLoot();
-  panel.dataset.grade=reward.tier;
-  panel.dataset.phase='reward';
+  panel.dataset.phase='reveal';
   $('#lootChest').textContent=reward.icon;
-  showLootText('#lootRarity',lootGrades[reward.tier]);
   showLootText('#lootTitle',reward.title);
   showLootText('#lootMessage',reward.text);
-  openingLoot=false;
-  $('#lootOpenBtn').textContent=boxBalance()>0?'상자 하나 더 열기':'상자 없음';
-  $('#lootCloseBtn').disabled=false;
-  lootParticles(reward.tier);
-  sfx(reward.tier==='loss'?'hit':reward.tier==='common'?'win':'rare');
+  if(!reduced)sfx('parcelOpen');
   addLog((epic?'에픽 상자 ':'상자 ')+lootGrades[reward.tier]+' 보상 · '+reward.title+' / '+reward.text);
   checkAchievements();
   renderAll();
   save();
-  if(document.activeElement===document.body)$('#lootCloseBtn').focus({preventScroll:true});
- },matchMedia('(prefers-reduced-motion: reduce)').matches?80:890);
+
+  setTimeout(()=>{
+   if(!stillOpening())return;
+   panel.dataset.phase='reward';
+   panel.dataset.grade=reward.tier;
+   showLootText('#lootRarity',lootGrades[reward.tier]);
+   openingLoot=false;
+   openButton.disabled=boxBalance()<=0;
+   openButton.textContent=boxBalance()>0?'상자 하나 더 열기':'상자 없음';
+   closeButton.disabled=false;
+   lootParticles(reward.tier);
+   sfx(reward.tier==='loss'?'hit':reward.tier==='common'?'win':reward.tier==='legendary'?'clear':'rare');
+   if(document.activeElement===document.body)closeButton.focus({preventScroll:true});
+  },reduced?60:360);
+ },reduced?80:1520);
 }
 // Preserve the existing underlying game engine while upgrading the relevant UI.
 const oldRenderOffice=renderOffice;

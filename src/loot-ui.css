@@ -205,37 +205,95 @@
 #lootConfetti i:nth-child(3n) { background: #fff8cf; }
 #lootConfetti i:nth-child(5n) { width: 5px; height: 5px; border-radius: 50%; }
 
-#lootWindow[data-phase=opening] .postbox-parcel { animation: post-shuffle .89s ease-in-out both; }
-#lootWindow[data-phase=opening] .postbox-lid { animation: post-unfold .55s .32s ease-out both; }
-#lootWindow[data-phase=opening] .postbox-seal { animation: post-unseal .3s .35s ease-out both; }
-#lootWindow[data-phase=opening] .postbox-light { animation: post-light .6s .28s ease-out both; }
-#lootWindow[data-phase=reward] .postbox-lid { transform: translateY(-9px) rotateX(-74deg); }
-#lootWindow[data-phase=reward] .postbox-seal { opacity: 0; }
-#lootWindow[data-phase=reward] .postbox-light { opacity: .57; }
-#lootWindow[data-phase=reward] #lootChest { animation: post-prize .43s cubic-bezier(.2,.7,.2,1.1) both; }
-#lootWindow[data-grade=loss] .postbox-light { opacity: .26; }
-#lootWindow[data-grade=loss] #lootChest { animation-duration: .25s; }
+.postbox-reel {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 152px;
+  height: 35px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border-radius: 7px;
+  border: 1px solid #e2bb7c75;
+  background: linear-gradient(90deg,#263c32,#473f31,#263c32);
+  color: #ffe8b8;
+  opacity: 0;
+  transition: opacity .14s ease-out;
+}
+.postbox-reel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 19px);
+  width: 38px;
+  border: solid #e3ba7c78;
+  border-width: 0 1px;
+  background: #ffe1a615;
+  box-shadow: 0 0 11px #ffdb8b32;
+}
+.postbox-reel-track {
+  display: flex;
+  width: max-content;
+  height: 100%;
+}
+.postbox-reel-track span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  font-size: 17px;
+  font-weight: 900;
+}
+#lootWindow:is([data-phase=opening],[data-phase=pause]) .postbox-reel { opacity: 1; }
+#lootWindow[data-phase=opening] .postbox-reel-track { animation: post-sort 1.11s ease-out both; }
+#lootWindow[data-phase=pause] .postbox-reel-track { transform: translateX(-171px); }
+#lootWindow[data-phase=pause] .postbox-reel::after { background: #ffdf9c34; }
+#lootWindow[data-phase=opening] .postbox-parcel { animation: post-shuffle 1.11s ease-in-out both; }
+#lootWindow[data-phase=pause] .postbox-parcel { transform: translate(-50%,-6px) rotate(-2deg); }
+#lootWindow[data-phase=opening] .postbox-light { animation: post-warm 1.11s ease-out both; }
+#lootWindow[data-phase=pause] .postbox-light { opacity: .5; }
+#lootWindow:is([data-phase=reveal],[data-phase=reward]) .postbox-lid { animation: post-unfold .34s ease-out both; }
+#lootWindow:is([data-phase=reveal],[data-phase=reward]) .postbox-seal { animation: post-unseal .23s ease-out both; }
+#lootWindow:is([data-phase=reveal],[data-phase=reward]) .postbox-light { animation: post-light .58s ease-out both; }
+#lootWindow:is([data-phase=reveal],[data-phase=reward]) #lootChest { animation: post-prize .41s cubic-bezier(.2,.7,.2,1.1) both; }
+#lootWindow[data-grade=loss] .postbox-light { animation: none; opacity: .3; }
+#lootWindow[data-phase=reward] #lootRarity { animation: post-stamp .32s cubic-bezier(.19,.83,.42,1) both; }
+@keyframes post-sort {
+  from { transform: translateX(0); }
+  52% { transform: translateX(-131px); }
+  to { transform: translateX(-171px); }
+}
 @keyframes post-shuffle {
-  0%,100% { transform: translateX(-50%) rotate(-4deg); }
-  16%,42% { transform: translateX(-53%) rotate(-10deg); }
-  25%,52% { transform: translateX(-47%) rotate(7deg); }
-  78% { transform: translate(-50%,-10px) rotate(-2deg); }
+  0% { transform: translateX(-50%) rotate(-4deg); }
+  18%,49% { transform: translateX(-53%) rotate(-9deg); }
+  30%,58% { transform: translateX(-47%) rotate(6deg); }
+  80% { transform: translate(-50%,-9px) rotate(-2deg); }
+  100% { transform: translate(-50%,-6px) rotate(-2deg); }
+}
+@keyframes post-warm {
+  from { opacity: .28; }
+  to { opacity: .5; }
 }
 @keyframes post-unfold {
-  0% { transform: none; }
-  100% { transform: translateY(-9px) rotateX(-74deg); }
+  from { transform: none; }
+  to { transform: translateY(-9px) rotateX(-74deg); }
 }
 @keyframes post-unseal {
   to { transform: translate(13px,-14px) rotate(32deg) scale(.65); opacity: 0; }
 }
 @keyframes post-light {
-  0% { opacity: .28; }
-  72% { opacity: .8; }
+  0% { opacity: .5; }
+  33% { opacity: .78; }
   100% { opacity: .57; }
 }
 @keyframes post-prize {
   0% { transform: translateY(27px) scale(.42); opacity: 0; }
   100% { transform: none; opacity: 1; }
+}
+@keyframes post-stamp {
+  0% { transform: rotate(-12deg) scale(1.65); opacity: 0; }
+  60% { transform: rotate(-5deg) scale(.96); opacity: 1; }
+  100% { transform: rotate(-5deg) scale(1); opacity: 1; }
 }
 @keyframes post-fleck {
   to { transform: translate(var(--x),var(--y)) rotate(var(--twist)); opacity: 0; }
@@ -304,5 +362,6 @@
   #lootWindow #lootOpenBtn { align-self: end; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .postbox-reel { display: none; }
   #lootWindow *, #lootWindow *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; }
 }
