@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/src/game.css">
 <link rel="stylesheet" href="/src/arcade.css">
 <link rel="stylesheet" href="/src/flight-ui.css">
+<link rel="stylesheet" href="/src/loot-ui.css">
 </head>
 <body class="booting">
 <section id="bootScreen" aria-label="게임 로딩">
@@ -174,7 +175,7 @@
 </div>
 <div class="overlay" id="mapOverlay">
  <canvas id="forecastMap"></canvas>
- <div class="map-head"><div class="map-head-main"><span>🗺️ 전체 항로 지도 · 무료</span><span id="mapTime">15.0초</span></div><div class="map-note">좌우로 이동해 기류를 확인하세요</div><div class="time-track"><span id="mapTimeFill"></span></div><div class="map-legend"><span><b style="color:#299ec7">↑</b> 상승기류</span><span><b style="color:#9967d6">↓</b> 하강기류</span><span><b style="color:#f27c65">│</b> 목표</span></div></div>
+ <div class="map-head"><div class="map-head-main"><span>🗺️ 전체 항로 지도 · 무료</span><span id="mapTime">15.0초</span></div><div class="map-note">좌우로 이동해 기류를 확인하세요</div><div class="time-track"><span id="mapTimeFill"></span></div><div class="map-legend"><span><b style="color:#278268">↑</b> 상승기류</span><span><b style="color:#8d51a7">↓</b> 하강기류</span><span><b style="color:#f27c65">│</b> 목표</span></div></div>
  <div class="map-bottom"><button id="mapLeft">← 왼쪽</button><button id="mapRight">오른쪽 →</button><button id="mapClose">닫기</button></div>
 </div>
 <div id="deliveryOverlay" role="dialog" aria-modal="true" aria-label="배송 결과" aria-hidden="true">
@@ -189,19 +190,32 @@
   </div>
 </div>
 <div id="rewardsLayer" aria-live="polite"></div>
-<div id="lootOverlay" role="dialog" aria-modal="true" aria-label="우체국 랜덤 뽑기">
-  <div class="loot-window" id="lootWindow">
-    <div class="loot-confetti" id="lootConfetti" aria-hidden="true"></div>
-    <div class="loot-caption" id="lootCaption">LUCKY MAIL</div>
-    <div class="loot-topbar"><span>보유 상자 <b id="lootBalance">1</b></span><span id="lootTypeName">행운 뽑기</span></div>
-    <div class="loot-stage" id="lootStage"><div class="loot-stage-halo"></div><div class="loot-pedestal"></div><div class="loot-chest" id="lootChest">🎁</div></div>
-    <div class="loot-reel" aria-hidden="true"><div id="lootReel">✉️　💰　🛡️　💎　👑　🛩️</div></div>
-    <div class="loot-status" id="lootStatus" aria-live="polite">등급을 뽑아 보세요</div>
-    <h2 class="loot-title" id="lootTitle">행운 상자</h2>
-    <div id="lootRarity" class="loot-rarity">확률 보상</div>
-    <p class="loot-message" id="lootMessage">어떤 보상이 나올까요?</p>
-    <div class="loot-actions"><button id="lootOpenBtn">🎁 상자 열기</button><button id="lootCloseBtn">돌아가기</button></div>
-    <details class="loot-odds" id="lootOdds"><summary>ⓘ 확률</summary><div class="loot-ranks" id="normalOdds" aria-label="등급별 뽑기 확률">
+<div id="lootOverlay" role="dialog" aria-modal="true" aria-labelledby="lootTypeName">
+  <div class="loot-window" id="lootWindow" data-phase="sealed">
+    <header class="postbox-bar">
+      <h2 id="lootTypeName">행운 상자</h2>
+      <span class="postbox-balance">보유 <b id="lootBalance">1</b></span>
+      <button id="lootCloseBtn" type="button" aria-label="상자 뽑기 닫기">×</button>
+    </header>
+    <div class="postbox-scene" aria-hidden="true">
+      <div class="postbox-light"></div>
+      <div class="postbox-table"></div>
+      <div class="postbox-shadow"></div>
+      <div class="postbox-parcel">
+        <div class="postbox-case"><i></i></div>
+        <div class="postbox-lid"></div>
+        <div class="postbox-seal"><span></span></div>
+      </div>
+      <span id="lootChest"></span>
+      <div id="lootConfetti" aria-hidden="true"></div>
+    </div>
+    <div class="postbox-result" aria-live="polite" aria-atomic="true">
+      <span id="lootRarity" hidden></span>
+      <h3 id="lootTitle" hidden></h3>
+      <p id="lootMessage" hidden></p>
+    </div>
+    <button id="lootOpenBtn" type="button">상자 열기</button>
+    <details class="loot-odds" id="lootOdds"><summary>확률 보기</summary><div class="loot-ranks" id="normalOdds" aria-label="등급별 뽑기 확률">
       <div class="loot-rank loss"><strong>손실</strong><span>16%</span></div>
       <div class="loot-rank common"><strong>일반</strong><span>47.04%</span></div>
       <div class="loot-rank rare"><strong>희귀</strong><span>23.52%</span></div>

@@ -1,0 +1,308 @@
+/* A parcel on the sorting table, with a separate paper slip for the result. */
+#lootOverlay {
+  padding: 12px;
+  background: radial-gradient(ellipse at 50% 38%,#304f3e88,#142c29ed);
+  backdrop-filter: blur(5px);
+}
+#lootWindow {
+  --parcel-paper: #edc186;
+  --parcel-lid: #ffe3ad;
+  --parcel-shade: #a75e3d;
+  --wax: #ae523f;
+  --grade: #c9914b;
+  --paper-glow: #ffdd9e;
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  width: min(420px,100%);
+  max-height: min(680px,calc(100dvh - 24px));
+  padding: 12px;
+  isolation: isolate;
+  border: 1px solid #e1c494;
+  border-radius: 16px;
+  color: #fff0cc;
+  background: #263e34;
+  box-shadow: 0 6px 0 #1c2d26,0 18px 58px #112824a8;
+}
+#lootWindow::before { content: none; }
+#lootWindow[data-box=epic] {
+  --parcel-paper: #bbaed8;
+  --parcel-lid: #e8dafa;
+  --parcel-shade: #695986;
+  --wax: #7c54a1;
+  --paper-glow: #e1c5f8;
+}
+#lootWindow[data-grade=loss] { --grade: #af5145; --paper-glow: #e2a586; }
+#lootWindow[data-grade=common] { --grade: #577361; --paper-glow: #e8dbac; }
+#lootWindow[data-grade=rare] { --grade: #327980; --paper-glow: #afe2d8; }
+#lootWindow[data-grade=epic] { --grade: #8256a0; --paper-glow: #dec2fc; }
+#lootWindow[data-grade=legendary] { --grade: #997024; --paper-glow: #ffe28e; }
+
+.postbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 2px 9px;
+}
+.postbox-bar h2 {
+  margin: 0 auto 0 0;
+  font-size: 18px;
+  letter-spacing: -.045em;
+  text-align: left;
+}
+.postbox-balance {
+  border: 1px solid #d1b98860;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: #1c3029;
+  color: #f5e5bf;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.postbox-balance b { color: #ffd68b; font-size: 13px; font-variant-numeric: tabular-nums; }
+#lootCloseBtn {
+  width: 32px;
+  height: 32px;
+  padding: 0 0 2px;
+  border: 1px solid #ddc79078;
+  border-radius: 9px;
+  background: #354f3f;
+  color: #fff0cb;
+  font-size: 22px;
+  line-height: 1;
+}
+#lootCloseBtn:disabled { opacity: .45; }
+
+.postbox-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 176px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid #dcc2907a;
+  border-radius: 11px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 49px,#805b3c14 49px 51px),
+    radial-gradient(ellipse at 50% 65%,#587556,#304c40 60%,#23382f);
+}
+.postbox-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 63%,var(--paper-glow),transparent 57%);
+  opacity: .28;
+}
+.postbox-table {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 32%;
+  border-top: 3px solid #cf9e6380;
+  background:
+    repeating-linear-gradient(4deg,#3b29250e 0 1px,transparent 1px 13px),
+    linear-gradient(180deg,#ae7f53,#775a3e);
+  box-shadow: 0 -2px 0 #172d2770;
+}
+.postbox-shadow {
+  position: absolute;
+  top: 77%;
+  width: 145px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse,#2a2826c2 10%,#2a282651 54%,transparent 72%);
+}
+.postbox-parcel {
+  position: absolute;
+  top: 37%;
+  left: 50%;
+  width: 134px;
+  height: 78px;
+  transform: translateX(-50%) rotate(-4deg);
+  transform-origin: center bottom;
+  filter: drop-shadow(1px 4px 0 #292a2163);
+}
+.postbox-case {
+  position: absolute;
+  inset: 12px 0 0;
+  border: 2px solid var(--parcel-shade);
+  border-radius: 5px 7px 9px 6px;
+  background: linear-gradient(112deg,var(--parcel-paper) 0 83%,var(--parcel-shade) 83%);
+  box-shadow: inset 0 -5px #5935262b,inset 3px 0 #fff4ce44;
+}
+.postbox-case i {
+  position: absolute;
+  left: 12px;
+  bottom: 9px;
+  width: 36px;
+  height: 16px;
+  border: 1px solid #724c363f;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg,#aa785c40 0 2px,transparent 2px 5px),#fff3dca0;
+}
+.postbox-lid {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 37px;
+  border: 2px solid var(--parcel-shade);
+  border-radius: 8px 8px 5px 5px;
+  transform-origin: center 4px;
+  background:
+    linear-gradient(153deg,transparent 49%,#754d473b 50% 52%,transparent 53%) left / 50% 100% no-repeat,
+    linear-gradient(207deg,transparent 49%,#754d473b 50% 52%,transparent 53%) right / 50% 100% no-repeat,
+    var(--parcel-lid);
+}
+.postbox-seal {
+  position: absolute;
+  left: 45%;
+  top: 20px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 46% 51% 49% 51%;
+  border: 2px solid #672d285e;
+  background: var(--wax);
+  box-shadow: inset 0 0 0 2px #fff0d034,0 2px #532e334a;
+}
+.postbox-seal span {
+  width: 12px;
+  height: 9px;
+  border: 1px solid #ffe8ba;
+  border-radius: 2px;
+}
+.postbox-seal span::after {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: -2px auto 0;
+  border: solid #ffe8ba;
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+}
+#lootChest {
+  position: absolute;
+  top: 17%;
+  left: 0;
+  right: 0;
+  padding-inline: 4px;
+  font-size: 45px;
+  line-height: 1.17;
+  filter: drop-shadow(0 4px 2px #24342e85);
+}
+#lootConfetti { position: absolute; inset: 0; pointer-events: none; }
+#lootConfetti i {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 8px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--paper-glow);
+  box-shadow: 0 0 11px var(--paper-glow);
+  animation: post-fleck var(--time) ease-out both;
+}
+#lootConfetti i:nth-child(3n) { background: #fff8cf; }
+#lootConfetti i:nth-child(5n) { width: 5px; height: 5px; border-radius: 50%; }
+
+#lootWindow[data-phase=opening] .postbox-parcel { animation: post-shuffle .89s ease-in-out both; }
+#lootWindow[data-phase=opening] .postbox-lid { animation: post-unfold .55s .32s ease-out both; }
+#lootWindow[data-phase=opening] .postbox-seal { animation: post-unseal .3s .35s ease-out both; }
+#lootWindow[data-phase=opening] .postbox-light { animation: post-light .6s .28s ease-out both; }
+#lootWindow[data-phase=reward] .postbox-lid { transform: translateY(-9px) rotateX(-74deg); }
+#lootWindow[data-phase=reward] .postbox-seal { opacity: 0; }
+#lootWindow[data-phase=reward] .postbox-light { opacity: .57; }
+#lootWindow[data-phase=reward] #lootChest { animation: post-prize .43s cubic-bezier(.2,.7,.2,1.1) both; }
+#lootWindow[data-grade=loss] .postbox-light { opacity: .26; }
+#lootWindow[data-grade=loss] #lootChest { animation-duration: .25s; }
+@keyframes post-shuffle {
+  0%,100% { transform: translateX(-50%) rotate(-4deg); }
+  16%,42% { transform: translateX(-53%) rotate(-10deg); }
+  25%,52% { transform: translateX(-47%) rotate(7deg); }
+  78% { transform: translate(-50%,-10px) rotate(-2deg); }
+}
+@keyframes post-unfold {
+  0% { transform: none; }
+  100% { transform: translateY(-9px) rotateX(-74deg); }
+}
+@keyframes post-unseal {
+  to { transform: translate(13px,-14px) rotate(32deg) scale(.65); opacity: 0; }
+}
+@keyframes post-light {
+  0% { opacity: .28; }
+  72% { opacity: .8; }
+  100% { opacity: .57; }
+}
+@keyframes post-prize {
+  0% { transform: translateY(27px) scale(.42); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes post-fleck {
+  to { transform: translate(var(--x),var(--y)) rotate(var(--twist)); opacity: 0; }
+}
+
+.postbox-result {
+  color: #ffefd1;
+  text-align: left;
+}
+.postbox-result:has(> :not([hidden])) {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e4c58a;
+  border-left: 4px solid var(--grade);
+  background: #fff0d2;
+  color: #394235;
+}
+#lootRarity {
+  float: right;
+  margin-left: 6px;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: var(--grade);
+  font-size: 10px;
+  font-weight: 950;
+  transform: rotate(-5deg);
+}
+#lootTitle { margin: 0; font-size: 15px; line-height: 1.35; }
+#lootMessage { clear: both; margin: 3px 0 0; font-size: 11px; line-height: 1.45; }
+#lootWindow #lootOpenBtn {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 9px;
+  border: 1px solid #fff0bf;
+  border-radius: 9px;
+  background: linear-gradient(#ffdf98,#f4b35f);
+  box-shadow: 0 3px #9a613d;
+  color: #513524;
+  font-size: 13px;
+  font-weight: 950;
+}
+#lootWindow[data-box=epic] #lootOpenBtn { background: linear-gradient(#eedaff,#c8aee6); border-color: #f3e1ff; color: #473854; box-shadow: 0 3px #705882; }
+#lootWindow #lootOpenBtn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px #9a613d; }
+#lootWindow #lootOpenBtn:disabled { opacity: .67; filter: saturate(.5); }
+
+#lootWindow .loot-odds { display: block; margin-top: 10px; color: #fff0cb; }
+#lootWindow .loot-odds > summary { min-height: 24px; }
+#lootWindow .loot-odds > summary::before { content: 'ⓘ '; }
+#lootWindow .loot-rank { color: #526738; background: #f4e8ca; border-color: #d1b687; }
+#lootWindow .loot-rank.loss { color: #ad5549; }
+#lootWindow .loot-rank.rare { color: #2e7479; }
+#lootWindow .loot-rank.epic { color: #795294; }
+#lootWindow .loot-rank.legendary { color: #90651b; }
+#lootWindow .loot-rank span { color: #45594a; }
+#lootWindow #epicOdds { color: #58406a; }
+#lootWindow #epicPlaneOdds { background: #f0e4f7; }
+
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 550px) {
+  #lootWindow { width: min(570px,100%); grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); column-gap: 10px; }
+  .postbox-bar { grid-column: 1 / -1; }
+  .postbox-scene { grid-column: 1; grid-row: 2 / span 3; min-height: 150px; }
+  .postbox-result, #lootWindow #lootOpenBtn, #lootWindow .loot-odds { grid-column: 2; }
+  .postbox-result { align-self: end; }
+  #lootWindow #lootOpenBtn { align-self: end; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #lootWindow *, #lootWindow *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; }
+}

@@ -75,7 +75,7 @@ function progressQuest(star,f,c){const q=dailyQuest(),s=state.daily;if(s.claimed
  let ok=q.def.type==='stars'?star>=4:q.def.type==='clean'?f.collisions===0:q.def.type==='long'?c.type==='distance'&&f.x>=c.goal:!!f.touchedUp;
  if(ok){s.progress=Math.min(q.def.target,s.progress+1);if(s.progress>=q.def.target){banner('🎯 오늘의 미션 달성! 우체국에서 보상을 받으세요');sfx('quest')}}}
 function claimDaily(){const q=dailyQuest();if(q.prog.claimed)return notify('오늘 보상은 이미 받았습니다');if(q.prog.progress<q.def.target)return notify('오늘의 미션을 더 진행하세요');q.prog.claimed=true;const cash=420+state.day*28;state.money+=cash;state.crates++;addLog('오늘의 미션 달성 · '+money(cash)+' / 상자 1개');sparkles('🌟',19);banner('🎯 미션 보상 '+money(cash)+' · 상자 1개');sfx('win');renderAll();autosave()}
-function refreshChest(){const c=$('#chestCount');if(c)c.textContent=String(state.crates);const b=$('#chestBtn');if(b)b.disabled=state.crates<=0;const o=$('#lootOpenBtn');if(o)o.disabled=state.crates<=0}
+function refreshChest(){const c=$('#chestCount');if(c)c.textContent=String(state.crates);const b=$('#chestBtn');if(b)b.disabled=state.crates<=0}
 let audioCtx=null;
 let audioBus=null,lastSoftSound=0;
 function sfx(type){
@@ -130,10 +130,20 @@ function rollLoot(mult=1,positiveOnly=false){
  return {...reward,tier}
 }
 
-let openingLoot=false,lootPending=false;
-function openChestUI(){if(state.gameOver)return notify('게임 오버 상태입니다');if(state.flightState==='flying'||$('#mapOverlay').classList.contains('show'))return notify('비행 중에는 열 수 없습니다');if($('#lootOverlay').classList.contains('show'))return; if(state.crates<=0)return notify('상자를 먼저 획득하세요. 4~5★ 배달에 도전!');if(state.flightState==='result'){clearTimeout(nextTimer);lootPending=true}openingLoot=false;$('#lootChest').textContent='🎁';$('#lootChest').classList.remove('opened');$('#lootTitle').textContent='행운 상자';$('#lootRarity').className='loot-rarity';$('#lootRarity').textContent='확률 보상';$('#lootMessage').textContent='등급에 따라 보상이 달라집니다.';$('#lootOpenBtn').textContent='상자 열기';$('#lootOpenBtn').disabled=false;$('#lootCloseBtn').disabled=false;$('#lootOverlay').classList.add('show');refreshChest()}
-function revealLoot(){if(openingLoot||state.crates<=0)return;openingLoot=true;$('#lootOpenBtn').disabled=true;$('#lootCloseBtn').disabled=true;$('#lootTitle').textContent='두근두근…';$('#lootMessage').textContent='상자 속 선물을 확인하는 중!';$('#lootChest').classList.remove('opened');$('#lootChest').textContent='🎁';sfx('event');setTimeout(()=>{state.crates--;const r=rollLoot();$('#lootChest').textContent=r.icon;$('#lootChest').classList.add('opened');$('#lootRarity').className='loot-rarity '+(r.tier==='common'?'':r.tier);$('#lootRarity').textContent={common:'일반',rare:'희귀',epic:'영웅',legendary:'전설'}[r.tier];$('#lootTitle').textContent=r.title;$('#lootMessage').textContent=r.text;$('#lootOpenBtn').textContent='다음 상자';$('#lootCloseBtn').disabled=false;openingLoot=false;refreshChest();$('#lootOpenBtn').disabled=state.crates<=0;sfx(r.tier==='loss'?'hit':r.tier==='common'?'win':'rare');if(r.tier==='epic'||r.tier==='legendary')sparkles('mix',30);addLog('상자 '+$('#lootRarity').textContent+' 보상 · '+r.title+' / '+r.text);renderAll();autosave()},1100)}
-function closeChestUI(){if(openingLoot)return;$('#lootOverlay').classList.remove('show');if(lootPending){lootPending=false;if(state.flightState==='result'&&!state.gameOver&&started)scheduleNext()}}
+let openingLoot=false,lootPending=false,lootReturnFocus=null;
+function openChestUI(){openEpicOrNormal('normal');}
+function closeChestUI(){
+ if(openingLoot||!$('#lootOverlay').classList.contains('show'))return;
+ $('#lootOverlay').classList.remove('show');
+ if(lootPending){
+  lootPending=false;
+  if(state.flightState==='result'&&!state.gameOver&&started)scheduleNext();
+ }
+ if(lootReturnFocus?.isConnected)lootReturnFocus.focus({preventScroll:true});
+ else if(dockEl.classList.contains('expanded'))$('.nav button.active')?.focus({preventScroll:true});
+ else $('#lobbyStart')?.focus({preventScroll:true});
+}
+
 function addLog(text){state.logs.unshift({day:state.day,text});state.logs=state.logs.slice(0,60);renderRecords()}
 function notify(text){const el=$('#toast');el.textContent=text;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),1700)}
 function autosave(){saveDelay=.45}
@@ -422,7 +432,7 @@ function sizeMap(){const rect=map.getBoundingClientRect();if(!rect.width||!rect.
 function drawMap(){if(!$('#mapOverlay').classList.contains('show')){mapRAF=0;return}sizeMap();let remain=Math.max(0,(mapEnd-performance.now())/1000);$('#mapTime').textContent=remain.toFixed(1)+'초';$('#mapTimeFill').style.width=remain/15*100+'%';const c=state.current;if(!c){mapClose();return}const g=mctx,w=mapW,h=mapH,gY=h-78,mapTop=h<530?135:160,scale=limit(w/590,.53,1.6),sx=x=>33+(x-mapView)*scale;
 g.clearRect(0,0,w,h);const bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#b2ebf7');bg.addColorStop(.7,'#e5f9f7');bg.addColorStop(1,'#d5eed3');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#7bcb9e';g.fillRect(0,gY,w,h-gY);
 for(let x=Math.floor(mapView/100)*100;x<=mapView+w/scale+100;x+=100){let xx=sx(x);g.strokeStyle='rgba(72,139,153,.21)';g.lineWidth=1;g.beginPath();g.moveTo(xx,mapTop);g.lineTo(xx,gY);g.stroke();g.fillStyle='#38687a';g.font='10px system-ui';g.fillText(metre(x),xx+3,gY+20)}
-for(const z of c.zones){let x=sx(z.x),end=sx(z.x+z.w);if(end<0||x>w)continue;g.fillStyle=z.kind==='up'?'rgba(48,168,209,.22)':'rgba(153,97,218,.23)';g.fillRect(x,mapTop,end-x,Math.max(0,gY-mapTop));g.strokeStyle=z.kind==='up'?'#2d98bd':'#9865d3';g.lineWidth=2;g.setLineDash([5,4]);g.beginPath();g.moveTo(x,mapTop);g.lineTo(x,gY);g.moveTo(end,mapTop);g.lineTo(end,gY);g.stroke();g.setLineDash([]);g.fillStyle=z.kind==='up'?'#2383a8':'#8650c4';g.font='bold 11px system-ui';g.fillText(z.kind==='up'?'↑ 상승':'↓ 하강',x+5,Math.min(gY-12,mapTop+22));g.font='9px system-ui';g.fillText('시작',x+2,gY-6);g.fillText('끝',end-13,gY-6)}
+for(const z of c.zones){let x=sx(z.x),end=sx(z.x+z.w);if(end<0||x>w)continue;g.fillStyle=z.kind==='up'?'rgba(54,160,123,.22)':'rgba(155,91,177,.23)';g.fillRect(x,mapTop,end-x,Math.max(0,gY-mapTop));g.strokeStyle=z.kind==='up'?'#3e9279':'#9c61ae';g.lineWidth=2;g.setLineDash([5,4]);g.beginPath();g.moveTo(x,mapTop);g.lineTo(x,gY);g.moveTo(end,mapTop);g.lineTo(end,gY);g.stroke();g.setLineDash([]);g.fillStyle=z.kind==='up'?'#278268':'#8d51a7';g.font='bold 11px system-ui';g.fillText(z.kind==='up'?'↑ 상승':'↓ 하강',x+5,Math.min(gY-12,mapTop+22));g.font='9px system-ui';g.fillText('시작',x+2,gY-6);g.fillText('끝',end-13,gY-6)}
 for(const o of c.obstacles){let x=sx(o.x);if(x<-40||x>w+40)continue;const y=gY-limit(o.alt,12,70)*1.35;g.font='17px system-ui';g.fillText(({tree:'🌳',pole:'🔌',cat:'🐈',line:'〰️',bird:'🐦',kite:'🪁',balloon:'🎈',window:'🏠',carwind:'🚗',alleywind:'💨'})[o.kind]||'•',x-7,y)}
 const goalX=sx(c.type==='distance'?c.goal:c.target);g.strokeStyle='#f57761';g.lineWidth=3;g.beginPath();g.moveTo(goalX,mapTop);g.lineTo(goalX,gY);g.stroke();g.fillStyle='#d85546';g.font='bold 13px system-ui';g.textAlign='center';g.fillText(c.type==='distance'?'희망 거리':'착륙 목표',goalX,mapTop-12);g.fillText(metre(c.type==='distance'?c.goal:c.target),goalX,gY+38);g.textAlign='start';g.fillStyle='#33677e';g.font='bold 11px system-ui';g.fillText(`현재 구간 ${metre(mapView)} ~ ${metre(mapView+w/scale)}`,12,h-13);
 if(remain<=0){mapClose();return}mapRAF=requestAnimationFrame(drawMap)}
@@ -517,7 +527,7 @@ window.addEventListener('pagehide',save);
 
 /* Enhanced daily claim affordances, plane controls and expandable bottom sheet */
 const dockEl=$('#dock'),appEl=$('#app');
-let dragDock=null,customDockHeight=null,presetName='balanced',lootInterval=null;
+let dragDock=null,customDockHeight=null,presetName='balanced';
 const badgeDefs=[
 {id:'first',icon:'📨',name:'첫 배달',desc:'첫 번째 배달 완료',test:()=>state.round>=1,reward:120},
 {id:'ace',icon:'🌟',name:'완벽한 착륙',desc:'5★를 한 번 받기',test:()=>state.stars.some(n=>n===5),reward:240},
@@ -583,7 +593,7 @@ function claimQueuedQuest(day){
 const previousProgressQuest=progressQuest;
 progressQuest=function(star,f,c){previousProgressQuest(star,f,c);const q=dailyQuest();ensureNewFields();if(!q.prog.claimed&&q.prog.progress>=q.def.target&&!state.pendingDaily.some(r=>r.day===q.prog.day)){state.pendingDaily.push({day:q.prog.day,name:q.def.name,cash:420+q.prog.day*28});autosave();}};
 claimDaily=function(){ensureNewFields();const q=state.pendingDaily.find(p=>p.day===state.day)||state.pendingDaily[0];if(!q)return notify('아직 달성한 미션이 없습니다');claimQueuedQuest(q.day)};
-function updateChestBadges(){const n=state.crates||0;$('#chestCount').textContent=String(n);$('#chestBtn').disabled=false;$('#chestBtn').classList.toggle('empty',n===0);$('#lootBalance').textContent=String(n);for(const el of $$('#lobbyShop,#chestBtn,.lucky-chest-card,.lucky-chest-card .action,#lootOpenBtn'))el.classList.toggle('lucky-ready',n>0)}
+function updateChestBadges(){const n=state.crates||0;$('#chestCount').textContent=String(n);$('#chestBtn').disabled=false;$('#chestBtn').classList.toggle('empty',n===0);$('#lootBalance').textContent=String(n);for(const el of $$('#lobbyShop,#chestBtn,.lucky-chest-card,.lucky-chest-card .action'))el.classList.toggle('lucky-ready',n>0)}
 function updatePlaneVisual(){const p=selectedPlane();if(!p)return;$('#planeSmallName').textContent=p.def.name;$('#planeWing').setAttribute('fill',p.def.color||'#fff');const eff=effectivePlaneStats(p);const stats=`속도 ${Math.round(eff.speed*100)} · 활공 ${Math.round(eff.glide*100)} · 안정 ${Math.round(eff.stable*100)}`;$('#planeStatsPreview').textContent=stats;const x=state.xp%180,lv=rankLevel();$('#rankLabel').textContent=`🎖️ Lv.${lv} 우체부`;$('#rankXp').textContent=`${x} / 180 XP`;$('#rankXpFill').style.width=(x/180*100)+'%';$('#loadoutNote').textContent=`장비 효과 · 충돌 방어막 ${state.boosts.shield}개 · 순풍 강화 ${state.boosts.tailwind}회`;$('#fineAngle').textContent=$('#angle').value+'°';$('#finePower').textContent=$('#power').value+'%';}
 function cyclePlane(by){const options=ownedFlat().filter(p=>p.p.dur>0);if(!options.length)return;const key=selectedPlane()?.key;const at=options.findIndex(p=>p.key===key);const nx=options[(at+by+options.length)%options.length];state.selectedPlaneKey=nx.key;renderPlaneSelect();updatePlaneVisual();autosave();sfx('event');}
 function setTuning(a,p){$('#angle').value=limit(Math.round(a),6,78);$('#power').value=limit(Math.round(p),20,100);state.launchAngle=Number($('#angle').value);state.launchPower=Number($('#power').value);$('#angleValue').textContent=state.launchAngle+'°';$('#powerValue').textContent=state.launchPower+'%';updatePlaneVisual();autosave()}
@@ -593,7 +603,74 @@ function limitDockHeight(v){const hud=innerHeight<531&&innerWidth>innerHeight?45
 function setDockHeight(v,store=false){const h=limitDockHeight(v);customDockHeight=h;appEl.style.setProperty('--dock-h',h+'px');dockEl.classList.toggle('expanded',h>baseDockHeight()+28);document.body.classList.toggle('sheet-open',h>baseDockHeight()+28);$('#grabText').textContent=h>baseDockHeight()+28?'아래로 밀어 화면 확장':'위로 밀어 메뉴 확장';if(store){state.uiDockHeight=h;autosave()}return h;}
 function toggleDock(){const b=baseDockHeight(),h=customDockHeight||b;setDockHeight(h>b+28?b:Math.min(innerHeight*.73,innerHeight-102),true)}
 function appendAchievements(){const g=$('#recordsList');if(!g)return;const wrap=document.createElement('section');wrap.className='achievements';wrap.innerHTML='<h3 class="achievement-heading">🏅 업적 컬렉션 · 처음 달성 시 코인 보상</h3>';for(const d of badgeDefs){const el=document.createElement('article');const done=!!state.achievements?.[d.id];el.className='achievement'+(done?' unlocked':'');el.innerHTML=`<b>${done?d.icon:'🔒'} ${d.name}</b><p>${d.desc} · ${money(d.reward)}${done?' ✓':''}</p>`;wrap.append(el)}g.prepend(wrap)}
-function lootParticles(count,tier){const host=$('#lootConfetti');host.replaceChildren();const parts=tier==='loss'?['⚠️','📉','🧾']:tier==='legendary'?['👑','✨','🌟','💎']:tier==='epic'?['✨','💜','⭐']:['✨','⭐','🎉'];for(let i=0;i<count;i++){let el=document.createElement('span');el.className='loot-bit';el.textContent=pick(parts);const th=2*Math.PI*i/count,d=rng(90,190);el.style.setProperty('--x',Math.cos(th)*d+'px');el.style.setProperty('--y',Math.sin(th)*d+'px');el.style.setProperty('--r',rng(-300,300)+'deg');el.style.setProperty('--t',rng(.9,1.55)+'s');host.append(el)}setTimeout(()=>host.replaceChildren(),1650)}
+const lootGrades = {
+ loss: '손실', common: '일반', rare: '희귀', epic: '영웅', legendary: '전설',
+};
+function lootParticles(tier){
+ const host=$('#lootConfetti');
+ host.replaceChildren();
+ if(tier==='loss'||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const count=tier==='legendary'?20:tier==='epic'?15:9;
+ for(let i=0;i<count;i++){
+  const fleck=document.createElement('i');
+  const angle=(i+.5)*2*Math.PI/count;
+  const distance=35+(i*37)%78;
+  fleck.style.setProperty('--x',Math.round(Math.cos(angle)*distance)+'px');
+  fleck.style.setProperty('--y',Math.round(Math.sin(angle)*distance)+'px');
+  fleck.style.setProperty('--twist',(i*67)%270+'deg');
+  fleck.style.setProperty('--time',(.43+(i%5)*.12)+'s');
+  fleck.addEventListener('animationend',()=>fleck.remove(),{once:true});
+  host.append(fleck);
+ }
+}
+function showLootText(selector,text){
+ const element=$(selector);
+ element.textContent=text;
+ element.hidden=!text;
+}
+function revealLoot(){
+ if(openingLoot||boxBalance()<=0||!$('#lootOverlay').classList.contains('show'))return;
+ const epic=lootMode==='epic';
+ const panel=$('#lootWindow');
+ openingLoot=true;
+ delete panel.dataset.grade;
+ panel.dataset.phase='opening';
+ $('#lootConfetti').replaceChildren();
+ $('#lootOpenBtn').disabled=true;
+ $('#lootOpenBtn').textContent='개봉 중';
+ $('#lootCloseBtn').disabled=true;
+ $('#lootChest').textContent='';
+ showLootText('#lootRarity','');
+ showLootText('#lootTitle','');
+ showLootText('#lootMessage','');
+ sfx('event');
+ setTimeout(()=>{
+  // The overlay may be removed when a save is restored or a delivery is reset.
+  if(!$('#lootOverlay').classList.contains('show')){openingLoot=false;return;}
+  if(epic){
+   state.epicCrates--;
+   state.epicPending=Math.max(0,state.epicPending-1);
+  }else state.crates--;
+  state.openedCrates=(state.openedCrates||0)+1;
+  const reward=epic?rollEpicLoot():rollLoot();
+  panel.dataset.grade=reward.tier;
+  panel.dataset.phase='reward';
+  $('#lootChest').textContent=reward.icon;
+  showLootText('#lootRarity',lootGrades[reward.tier]);
+  showLootText('#lootTitle',reward.title);
+  showLootText('#lootMessage',reward.text);
+  openingLoot=false;
+  $('#lootOpenBtn').textContent=boxBalance()>0?'상자 하나 더 열기':'상자 없음';
+  $('#lootCloseBtn').disabled=false;
+  lootParticles(reward.tier);
+  sfx(reward.tier==='loss'?'hit':reward.tier==='common'?'win':'rare');
+  addLog((epic?'에픽 상자 ':'상자 ')+lootGrades[reward.tier]+' 보상 · '+reward.title+' / '+reward.text);
+  checkAchievements();
+  renderAll();
+  save();
+  if(document.activeElement===document.body)$('#lootCloseBtn').focus({preventScroll:true});
+ },matchMedia('(prefers-reduced-motion: reduce)').matches?80:890);
+}
 // Preserve the existing underlying game engine while upgrading the relevant UI.
 const oldRenderOffice=renderOffice;
 renderOffice=function(){oldRenderOffice();questNotify()};
@@ -601,39 +678,20 @@ const oldRenderAll=renderAll;
 renderAll=function(){oldRenderAll();updatePlaneVisual();updateChestBadges()};
 const oldRenderRecords=renderRecords;
 renderRecords=function(){oldRenderRecords();appendAchievements()};
-const oldOpenChestUI=openChestUI;
-openChestUI=function(){
- if(state.crates<=0){if(state.flightState==='flying'||$('#mapOverlay').classList.contains('show'))return notify('비행 중에는 열 수 없습니다');$('#lootOverlay').classList.add('show');openingLoot=false;lootPending=state.flightState==='result';if(lootPending)clearTimeout(nextTimer);
-  $('#lootChest').textContent='🎁';$('#lootRarity').className='loot-rarity';$('#lootRarity').textContent='확률 보상';$('#lootTitle').textContent='행운 상자';$('#lootMessage').textContent='상자가 없습니다 · 배달/미션으로 획득';
-  $('#lootCloseBtn').disabled=false;$('#lootOpenBtn').disabled=true;
- }else oldOpenChestUI();
- if(!$('#lootOverlay').classList.contains('show'))return;const w=$('#lootWindow');w.className='loot-window';$('#lootConfetti').replaceChildren();$('#lootStatus').textContent='등급을 뽑아 보세요';$('#lootBalance').textContent=String(state.crates);$('#lootOpenBtn').textContent=state.crates>0?'🎁 상자 열기':'상자 없음';$('#lootOpenBtn').disabled=state.crates<=0;};
-revealLoot=function(){
- if(openingLoot||boxBalance()<=0)return;
- const epic=lootMode==='epic';
- openingLoot=true;
- const win=$('#lootWindow');win.className='loot-window spinning'+(epic?' epic-box':'');
- $('#lootOpenBtn').disabled=true;$('#lootCloseBtn').disabled=true;
- $('#lootTitle').textContent='개봉 중';$('#lootRarity').className='loot-rarity';$('#lootRarity').textContent='기대하세요';
- $('#lootStatus').textContent='등급 추첨 중';$('#lootMessage').textContent='개봉 중';
- $('#lootChest').classList.remove('opened');$('#lootChest').textContent=epic?'💎':'🎁';sfx('event');
- let turn=0;clearInterval(lootInterval);
- lootInterval=setInterval(()=>{turn++;$('#lootReel').textContent=Array.from({length:9},()=>pick(['✉️','💰','🛡️','💎','👑','🛩️','🌈','🍀'])).join('　');if(turn===8)$('#lootStatus').textContent='등급 추첨 중';if(turn===17)$('#lootStatus').textContent='결과 공개!'},92);
- setTimeout(()=>{
-  clearInterval(lootInterval);if(!$('#lootOverlay').classList.contains('show'))return;
-  if(epic){state.epicCrates--;state.epicPending=Math.max(0,state.epicPending-1);}else state.crates--;state.openedCrates=(state.openedCrates||0)+1;
-  const r=epic?rollEpicLoot():rollLoot(),names={loss:'⚠ 손실',common:'● 일반',rare:'◆ 희귀',epic:'✦ 영웅',legendary:'★ 전설'};
-  win.className='loot-window reveal'+(epic?' epic-box':'')+(r.tier==='loss'?' loss-reveal':r.tier==='legendary'?' legendary-reveal':r.tier==='epic'?' epic-reveal':'');
-  $('#lootChest').textContent=r.icon;$('#lootChest').classList.add('opened');
-  $('#lootRarity').className='loot-rarity '+(r.tier==='common'?'':r.tier);$('#lootRarity').textContent=names[r.tier]+' 등급';
-  $('#lootTitle').textContent=r.title;$('#lootStatus').textContent=r.tier==='loss'?'⚠️ LOSS · 이번 상자는 손실!':r.tier==='legendary'?'👑 LEGENDARY · 전설 획득!':r.tier==='epic'?'💜 EPIC · 영웅 획득!':'🎉 개봉 완료!';
-  $('#lootMessage').textContent=r.text;$('#lootOpenBtn').textContent=epic?'💎 한 번 더 뽑기':'🎁 한 번 더 뽑기';$('#lootCloseBtn').disabled=false;
-  openingLoot=false;lootParticles(r.tier==='legendary'?30:r.tier==='epic'?23:15,r.tier);
-  sfx(r.tier==='loss'?'hit':r.tier==='common'?'win':'rare');if(r.tier==='epic'||r.tier==='legendary')sparkles('mix',30);
-  addLog((epic?'에픽 상자 ':'상자 ')+names[r.tier]+' 보상 · '+r.title+' / '+r.text);
-  checkAchievements();renderAll();save();$('#lootOpenBtn').disabled=boxBalance()<=0;
- },2250);
-};
+document.addEventListener('keydown',event=>{
+ const overlay=$('#lootOverlay');
+ if(!overlay.classList.contains('show'))return;
+ if(event.key==='Escape'){event.preventDefault();closeChestUI();}
+ if(event.key!=='Tab')return;
+ const buttons=[...overlay.querySelectorAll('button:not(:disabled), summary')]
+  .filter(element=>element.getClientRects().length);
+ if(!buttons.length){event.preventDefault();return;}
+ const first=buttons[0],last=buttons.at(-1);
+ if(!overlay.contains(document.activeElement)||(event.shiftKey?document.activeElement===first:document.activeElement===last)){
+  event.preventDefault();
+  (event.shiftKey?last:first).focus();
+ }
+});
 const oldMapOpen=mapOpen;
 mapOpen=function(){const was=$('#mapOverlay').classList.contains('show');oldMapOpen();if(!was&&$('#mapOverlay').classList.contains('show')){state.mapVisits=(state.mapVisits||0)+1;checkAchievements();autosave();}};
 const oldCompleteFlight=completeFlight;
@@ -1137,23 +1195,36 @@ function init(){load();ensureNewFields();document.body.classList.add('lobby-mode
 let lootMode='normal';
 function boxBalance(){return lootMode==='epic'?state.epicCrates||0:state.crates||0;}
 function openEpicOrNormal(mode='normal',automatic=false){
- if(state.flightState==='flying'||$('#mapOverlay').classList.contains('show')||openingLoot)return;
+ if(state.flightState==='flying'||$('#mapOverlay').classList.contains('show')||openingLoot||$('#lootOverlay').classList.contains('show'))return;
  if(state.gameOver)return notify('게임 오버 상태입니다');
  ensureEpic();lootMode=mode==='epic'?'epic':'normal';const epic=lootMode==='epic';
  if(state.flightState==='result'){clearTimeout(nextTimer);lootPending=true;}
- const win=$('#lootWindow');win.className='loot-window'+(epic?' epic-box':'');
- $('#lootConfetti').replaceChildren();$('#lootChest').classList.remove('opened');$('#lootChest').textContent=epic?'💎':'🎁';
- $('#lootCaption').textContent=epic?'EPIC MAIL':'LUCKY MAIL';$('#lootTypeName').textContent=epic?'에픽 뽑기':'행운 뽑기';
- $('#lootTitle').textContent=epic?'에픽 상자':'행운 상자';$('#lootRarity').className='loot-rarity'+(epic?' epic':'');$('#lootRarity').textContent=epic?'에픽':'행운';
- $('#lootStatus').textContent=automatic?'새 에픽 상자':'';
- $('#lootMessage').textContent=boxBalance()>0?(epic?'비행기 또는 5배 보상':''):'보유 상자 없음';
- $('#normalOdds').hidden=epic;$('#epicOdds').hidden=!epic;$('#epicPlaneOdds').open=false;$('#lootOdds').open=false;
- $('#epicOddsList').innerHTML=planeDefs.map((d,i)=>'<div><span>'+safe(d.name)+'</span><b>'+epicPlaneWeights[i]+'%</b></div>').join('');
- $('#lootOpenBtn').textContent=boxBalance()>0?(epic?'💎 에픽 상자 열기':'🎁 상자 열기'):'상자 없음';$('#lootCloseBtn').disabled=false;
- $('#lootOverlay').classList.add('show');updateChestBadges();
+ const win=$('#lootWindow');
+ lootReturnFocus=document.activeElement;
+ win.dataset.box=lootMode;
+ win.dataset.phase='sealed';
+ delete win.dataset.grade;
+ $('#lootConfetti').replaceChildren();
+ $('#lootChest').textContent='';
+ $('#lootTypeName').textContent=epic?'에픽 상자':'행운 상자';
+ showLootText('#lootRarity','');
+ showLootText('#lootTitle','');
+ showLootText('#lootMessage',boxBalance()?'':'보유 상자 없음');
+ $('#normalOdds').hidden=epic;
+ $('#epicOdds').hidden=!epic;
+ $('#epicPlaneOdds').open=false;
+ $('#lootOdds').open=false;
+ if(epic){
+  $('#epicOddsList').innerHTML=planeDefs.map((d,i)=>'<div><span>'+safe(d.name)+'</span><b>'+epicPlaneWeights[i]+'%</b></div>').join('');
+ }
+ $('#lootOpenBtn').textContent=boxBalance()>0?'상자 열기':'상자 없음';
+ $('#lootCloseBtn').disabled=false;
+ $('#lootOverlay').classList.add('show');
+ win.scrollTop=0;
+ updateChestBadges();
+ (boxBalance()?$('#lootOpenBtn'):$('#lootCloseBtn')).focus({preventScroll:true});
  if(automatic)sfx('rare');
 }
-openChestUI=function(){openEpicOrNormal('normal');};
 const epicShopBase=renderShop;
 renderShop=function(){
  ensureEpic();epicShopBase();const card=document.createElement('div');card.className='item epic-chest-card'+(state.epicCrates>0?' epic-ready':'');

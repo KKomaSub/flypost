@@ -30,6 +30,10 @@ const skyStrips = Object.fromEntries(Object.entries(skyThemes).map(([key, colors
   });
   return [key, strips];
 }));
+const currentStyles = {
+  up: { pale: 0xb6f8d5, shade: 0x277365, ink: 0x244f43, text: '#edffe9', name: '↑ 상승' },
+  down: { pale: 0xe6caf7, shade: 0x80549a, ink: 0x57446c, text: '#fff0ff', name: '↓ 하강' },
+};
 const planeFold = [{x:32,y:0}, {x:-21,y:-16}, {x:-8,y:0}, {x:-21,y:16}];
 const obstacleIcons = {
   cat: '◆', line: '⌁', bird: '⌄', kite: '◇', balloon: '◉', window: '▦', carwind: '»', alleywind: '»',
@@ -41,6 +45,18 @@ function drawCloud(g, x, y, scale, tint, alpha) {
   g.fillEllipse(x - 22 * scale, y - 8 * scale, 53 * scale, 34 * scale);
   g.fillEllipse(x + 9 * scale, y - 15 * scale, 66 * scale, 47 * scale);
   g.fillEllipse(x + 43 * scale, y - 3 * scale, 39 * scale, 27 * scale);
+}
+
+function windArrow(g, x, y, direction, size, style, alpha) {
+  const tip = y - size * direction;
+  const shoulder = y + 1 * direction;
+  const tail = y + 8 * direction;
+  // A dark rim preserves direction on both light clouds and dark scenery.
+  for (const [weight, tint, opacity] of [[3.8,style.ink,alpha*.54],[1.9,style.pale,alpha]]) {
+    g.lineStyle(weight, tint, opacity).beginPath();
+    g.moveTo(x - size * .67, shoulder).lineTo(x, tip).lineTo(x + size * .67, shoulder);
+    g.moveTo(x, tip).lineTo(x, tail).strokePath();
+  }
 }
 
 function tree(g, x, ground, size, tint, alpha = 1) {
@@ -272,25 +288,74 @@ class Airfield extends Phaser.Scene {
     else this.aircraft.clear();
   }
 
+  drawCurrents(g, w, h, { mission, project, scale, flight }, t) {
+    const placements = [];
+    const clock = this.reducedMotion ? 0 : t;
+    for (const zone of mission.zones) {
+      const point = project(zone.x, 0);
+      const width = zone.w * scale;
+      const left = Math.max(0, point.x);
+      const right = Math.min(w, point.x + width);
+      if (right - left < 4) continue;
+      const height = Math.min(h * .68, 140 * scale);
+      const bottom = point.y;
+      const top = bottom - height;
+      if (top >= h || bottom < 0) continue;
+      const style = currentStyles[zone.kind];
+      const direction = zone.kind === 'up' ? 1 : -1;
+      const active = flight && flight.x >= zone.x && flight.x <= zone.x + zone.w && flight.y < 140;
+
+      // The translucent, tapered lane follows the boundaries of the wind effect.
+      g.fillStyle(style.shade, active ? .22 : .13).fillPoints([
+        {x: point.x, y: bottom},
+        {x: point.x + width, y: bottom},
+        {x: point.x + width * .89, y: top + height * .12},
+        {x: point.x + width * .63, y: top},
+        {x: point.x + width * .32, y: top},
+        {x: point.x + width * .10, y: top + height * .12},
+      ], true);
+      const span = right - left;
+      const lanes = span > 94 ? 2 : 1;
+      const count = height > 130 ? 4 : 3;
+      const arrowSize = clamp(span / (lanes * 6), 5.5, 9);
+      for (let lane = 0; lane < lanes; lane++) {
+        const x = left + span * ((lane + 1) / (lanes + 1));
+        for (let index = 0; index < count; index++) {
+          const progress = wrap(index / count + lane * .17 + direction * clock * .35 + zone.x * .011, 1);
+          const y = bottom - 13 - progress * Math.max(8, height - 22);
+          if (y < 6 || y > h + 7) continue;
+          const breeze = Math.sin(progress * 5.2 + lane) * Math.min(10, span * .12);
+          const alpha = .30 + .57 * Math.sin(progress * Math.PI);
+          windArrow(g, x + breeze, y, direction, arrowSize, style, alpha);
+        }
+      }
+      for (const x of [point.x, point.x + width]) {
+        if (x >= 0 && x < w && bottom <= h) {
+          g.fillStyle(style.ink,.63).fillEllipse(x,bottom+1,14,5);
+          g.fillStyle(style.pale,.87).fillEllipse(x,bottom,10,3);
+        }
+      }
+
+      if (span < 46 || w < 100) continue;
+      const center = clamp((left + right) / 2, 27, w - 27);
+      const labelTop = Math.min(108, h * .32);
+      const labelBottom = Math.min(h - 39, bottom - 13);
+      if (labelBottom < Math.max(labelTop, top)) continue;
+      const baseline = clamp(bottom - height * .72, Math.max(labelTop, top), labelBottom);
+      const rows = [baseline, baseline + 24];
+      const y = rows.find(candidate => candidate <= labelBottom &&
+        !placements.some(mark => Math.abs(center - mark.x) < 53 && Math.abs(candidate - mark.y) < 21));
+      if (y === undefined) continue;
+      placements.push({x:center,y});
+      g.fillStyle(style.ink,.91).fillRoundedRect(center-24,y-10,48,20,7);
+      g.lineStyle(1,style.pale,.83).strokeRoundedRect(center-24,y-10,48,20,7);
+      this.label(style.name, center, y, style.text);
+    }
+  }
+
   drawMission(g, w, h, view, t) {
     const { mission, project, scale } = view;
-    for (const zone of mission.zones) {
-      const p = project(zone.x, 0), width = zone.w * scale;
-      if (p.x + width < 0 || p.x > w) continue;
-      const up = zone.kind === 'up';
-      const tint = up ? 0xe0fff1 : 0xe8d5f5;
-      const height = Math.min(h * .65, 135 * scale);
-      const start = Math.max(0, p.x);
-      const end = Math.min(w, p.x + width);
-      for (let x = start + 12; x < end - 4; x += 24) {
-        const y = p.y - wrap(t * (up ? 37 : -37) + x * .83, height);
-        const direction = up ? 1 : -1;
-        g.lineStyle(1.5, tint, .63).lineBetween(x - 4, y + 5 * direction, x, y)
-          .lineBetween(x, y, x + 4, y + 5 * direction);
-      }
-      const center = p.x + width / 2;
-      if (center > 30 && center < w - 30) this.label(up ? '↑' : '↓', center, p.y - height * .44, '#f0ffec');
-    }
+    this.drawCurrents(g, w, h, view, t);
 
     for (const obstacle of mission.obstacles) {
       const p = project(obstacle.x, 0);
