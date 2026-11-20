@@ -50,6 +50,8 @@ const regions=[{name:'햇살 마을',sky:['#a8e4fa','#e3f7f2'],hill:'#a3dba6',gr
 {name:'높은 산길',sky:['#b8d6ec','#eef5f9'],hill:'#a6c1d1',ground:'#79b69d'}];
 const newState=()=>({reputationBonus:0,reputationBuys:0,delivery:null,gameMode:'random',stageSelected:1,stageUnlocked:1,stageStars:{},stageWins:0,version:GAME_VERSION,money:1200,day:1,month:1,round:0,playsToday:0,forcedCustomers:0,forecastTickets:1,adFixUsedToday:0,goodRaw:0,crates:1,cratePity:0,boosts:{shield:0,tailwind:0},daily:null,riskMode:false,insuranceOn:false,sound:true,finance:{earned:0,spent:0,borrowed:0,winEvents:0,lossEvents:0,last:null,ledger:[]},stars:[],monthStars:[],records:[],logs:[],owned:{basic:[{dur:5,maxDur:5}]},selectedPlaneKey:'basic:0',debts:[],current:null,flightState:'ready',lastResult:null,gameOver:false,gameOverReason:'',ai:{enabled:false,player:0,bot:0,draw:0,history:[]}});
 let state=newState(),started=false,flight=null,cameraX=0,nextTimer=null,saveDelay=0;
+const practicePlane = {def:planeDefs[0],p:{dur:planeDefs[0].dur,maxDur:planeDefs[0].dur}};
+let training=false, practiceAim=null;
 let cameraAim=0,manualCamera=false,sceneDrag=null,zoomNow=1,zoomInitialized=false,groundLift=0;
 const world=$('#world'),map=$('#forecastMap'),mctx=map.getContext('2d');
 let W=1,H=1,mapW=1,mapH=1,mapDpr=1,mapEnd=0,mapView=0,mapRAF=0,mapDrag=null,modalTask=null,toastTimer=0;
@@ -152,7 +154,7 @@ function autosave(){saveDelay=.45}
 function save(){saveDelay=0;try{localStorage.setItem(SAVE,JSON.stringify({...state,current:null,lastResult:null,flightState:state.gameOver?'gameover':'ready'}))}catch(e){console.warn('Save failed',e)}}
 function load(){try{let raw=localStorage.getItem(SAVE);if(!raw)return;let data=JSON.parse(raw);state={...newState(),...data};state.ai={...newState().ai,...(data.ai||{})};state.stars=Array.isArray(data.stars)?data.stars:[];state.monthStars=Array.isArray(data.monthStars)?data.monthStars:[];state.logs=Array.isArray(data.logs)?data.logs:[];state.records=Array.isArray(data.records)?data.records:[];state.debts=Array.isArray(data.debts)?data.debts:[];state.owned=data.owned&&typeof data.owned==='object'?data.owned:{basic:[{dur:5,maxDur:5}]};state.current=null;state.lastResult=null;state.flightState=state.gameOver?'gameover':'ready';state.forecastTickets=Number.isFinite(state.forecastTickets)?state.forecastTickets:1;state.goodRaw=Number.isFinite(state.goodRaw)?state.goodRaw:0;state.money=Math.max(0,Number(state.money)||0);state.crates=Number.isFinite(state.crates)?Math.max(0,state.crates):(state.round===0?1:0);state.cratePity=Number.isFinite(state.cratePity)?state.cratePity:0;state.boosts={shield:0,tailwind:0,...(state.boosts||{})};state.riskMode=!!state.riskMode;state.sound=state.sound!==false;state.insuranceOn=!!state.insuranceOn;state.finance={earned:0,spent:0,borrowed:0,winEvents:0,lossEvents:0,last:null,ledger:[],...(data.finance||{})};state.finance.ledger=Array.isArray(state.finance.ledger)?state.finance.ledger:[];if(!state.owned.basic)state.owned.basic=[{dur:5,maxDur:5}];}catch(e){console.warn('Invalid save',e);state=newState()}}
 function ownedFlat(){let out=[];for(const def of planeDefs)(state.owned[def.id]||[]).forEach((plane,i)=>out.push({def,p:plane,key:def.id+':'+i,index:i}));return out}
-function selectedPlane(){return ownedFlat().find(x=>x.key===state.selectedPlaneKey)||ownedFlat().find(x=>x.p.dur>0)||ownedFlat()[0]}
+function selectedPlane(){if(training)return practicePlane;return ownedFlat().find(x=>x.key===state.selectedPlaneKey)||ownedFlat().find(x=>x.p.dur>0)||ownedFlat()[0]}
 function ensurePlane(){let s=selectedPlane();if(s?.p.dur>0)return s;let usable=ownedFlat().find(x=>x.p.dur>0);if(usable){state.selectedPlaneKey=usable.key;return usable}const def=planeDefs[0];pay(def.price,'필수 비행기 구매');state.owned.basic=state.owned.basic||[];state.owned.basic.push({dur:def.dur,maxDur:def.dur});state.selectedPlaneKey='basic:'+(state.owned.basic.length-1);addLog('기본 비행기 자동 재구매');checkGameOver();return selectedPlane()}
 function ledger(amount,reason,type='expense'){
  state.finance ||= {earned:0,spent:0,borrowed:0,winEvents:0,lossEvents:0,last:null,ledger:[]};
@@ -207,7 +209,7 @@ function updateMission(){
  if(!c)return;
  const exact=c.type==='accuracy';
  $('#missionName').textContent=c.scenarioName || (exact?'정확 배달 의뢰':'장거리 배달 의뢰');
- $('#missionType').textContent=exact?'정확 배달':'장거리 배달';
+ $('#missionType').textContent=training?'연습 과녁':exact?'정확 배달':'장거리 배달';
  $('#routeIcon').textContent=exact?'◎':'⚑';
  $('#routeIcon').classList.toggle('distance',!exact);
  $('#missionDesc').textContent=`${c.pack.name} · 무게 ${(c.weight*100).toFixed(1)}%`;
@@ -230,29 +232,106 @@ function updateFlightHud(f,force=false){
  if(force||correctionPips.getAttribute('aria-label')!==label){
   correctionPips.setAttribute('aria-label',label);
   pipMarks.forEach((pip,i)=>pip.classList.toggle('spent',i>=f.corrections));
-  flightDirectionButtons.forEach(button=>{button.disabled=f.corrections===0;});
+  flightDirectionButtons.forEach(button=>{button.disabled=f.corrections===0||(training&&!tutorial.canCorrect());});
  }
- if(flightBrakeButton.disabled!==f.braked)flightBrakeButton.disabled=f.braked;
+ const brakeDisabled=f.braked||(training&&!tutorial.canBrake());
+ if(flightBrakeButton.disabled!==brakeDisabled)flightBrakeButton.disabled=brakeDisabled;
  const description=`${distance} · 보정 ${f.corrections} · ${f.braked?'제동 사용':'제동 가능'}`;
  if(flightInfo.textContent!==description)flightInfo.textContent=description;
 }
 
-function launch(){if(state.gameOver)return notify('게임 오버 상태입니다');if(state.flightState!=='ready'||!state.current)return notify('새 손님을 기다려주세요');const p=ensurePlane();if(!p||state.gameOver)return;const angle=Number($('#angle').value)*Math.PI/180,power=Number($('#power').value)/100,c=state.current;
-const insured=!!state.insuranceOn;if(insured){const premium=insurancePrice();pay(premium,'이번 배송 보험료');if(state.gameOver)return;banner('🛡 배송 보험 가입 · '+money(premium));}const tailwind=state.boosts.tailwind>0;if(tailwind)state.boosts.tailwind--;const speed=(55+power*80)*effectivePlaneStats(p).speed/(c.weight)*(tailwind?1.1:1);flight={x:0,y:2.7,vx:speed*Math.cos(angle),vy:speed*Math.sin(angle)*.89,angle:-angle,t:0,corrections:5,collisions:0,trail:[],warnings:0,risk:state.riskMode,braked:false,eventRolled:false,touchedUp:false,extraCoins:0,luckyCollected:false,insured,premium:insured?insurancePrice():0};sfx('launch');if(tailwind)banner('🍀 행운의 순풍! 속도 +10%');state.flightState='flying';document.body.classList.add('in-flight');$('#mission').open=false;updateFlightHud(flight,true);addLog('발사 · '+p.def.name+' / '+$('#angle').value+'° / 힘 '+$('#power').value+'%');renderStatus();autosave()}
-function airBrake(){const f=flight;if(state.flightState!=='flying'||!f||f.braked)return;f.braked=true;updateFlightHud(f);f.vx*=.67;f.vy-=11;banner('⤓ 에어 브레이크! 속도 감소');sparkles('✨',7);sfx('brake')}
-function correction(x,y){if(state.flightState!=='flying'||!flight||flight.corrections<=0)return;let stability=effectivePlaneStats(selectedPlane()).stable;flight.vx+=x*8*stability;flight.vy+=y*8*stability;flight.corrections--;sfx('correct');updateFlightHud(flight);if(flight.corrections===0)notify('보정 횟수를 모두 사용했습니다')}
+function initialVelocity(angle,power,mission,plane,tailwind=false){
+ const speed=(55+power*80)*effectivePlaneStats(plane).speed/mission.weight*(tailwind?1.1:1);
+ return {vx:speed*Math.cos(angle),vy:speed*Math.sin(angle)*.89};
+}
+function launch(){
+ if(!training&&state.gameOver)return notify('게임 오버 상태입니다');
+ if(state.flightState!=='ready'||!state.current)return notify('새 손님을 기다려주세요');
+ if(training&&!tutorial.canLaunch())return;
+ const p=ensurePlane();
+ if(!p||(!training&&state.gameOver))return;
+ const angle=Number($('#angle').value)*Math.PI/180,power=Number($('#power').value)/100;
+ const insured=!training&&state.insuranceOn;
+ const premium=insured?insurancePrice():0;
+ if(insured){
+  pay(premium,'이번 배송 보험료');
+  if(state.gameOver)return;
+  banner('🛡 배송 보험 가입 · '+money(premium));
+ }
+ const tailwind=!training&&state.boosts.tailwind>0;
+ if(tailwind){
+  state.boosts.tailwind--;
+  banner('🍀 행운의 순풍! 속도 +10%');
+ }
+ flight={x:0,y:2.7,...initialVelocity(angle,power,state.current,p,tailwind),angle:-angle,t:0,
+  corrections:5,collisions:0,trail:[],warnings:0,risk:!training&&state.riskMode,braked:false,
+  eventRolled:false,touchedUp:false,extraCoins:0,luckyCollected:false,insured,premium};
+ sfx('launch');state.flightState='flying';document.body.classList.add('in-flight');$('#mission').open=false;
+ if(training)tutorial.launched();
+ updateFlightHud(flight,true);
+ if(training)return;
+ addLog('발사 · '+p.def.name+' / '+$('#angle').value+'° / 힘 '+$('#power').value+'%');
+ renderStatus();autosave();
+}
+function airBrake(){
+ const f=flight;
+ if(state.flightState!=='flying'||!f||f.braked||(training&&!tutorial.canBrake()))return;
+ f.braked=true;f.vx*=.67;f.vy-=11;
+ if(training)tutorial.braked();
+ else banner('⤓ 에어 브레이크! 속도 감소');
+ updateFlightHud(f,true);sparkles('✨',7);sfx('brake');
+}
+function correction(x,y){
+ if(state.flightState!=='flying'||!flight||flight.corrections<=0||(training&&!tutorial.canCorrect()))return;
+ const stability=effectivePlaneStats(selectedPlane()).stable;
+ flight.vx+=x*8*stability;flight.vy+=y*8*stability;flight.corrections--;sfx('correct');
+ if(training)tutorial.corrected(flight.t);
+ updateFlightHud(flight);
+ if(flight.corrections===0)notify('보정 횟수를 모두 사용했습니다');
+}
 function handleObstacles(dt){let c=state.current;if(!flight||!c)return;for(const ob of c.obstacles){if(ob.used||Math.abs(flight.x-ob.x)>ob.width)continue;let contact=false,y=flight.y;switch(ob.kind){case 'tree':case 'pole': contact=y<ob.height;break;case 'cat':contact=y<8;break;case 'line': contact=Math.abs(y-ob.height*.8)<5;break;case 'window':contact=y>15&&y<ob.height;break;case 'bird':case 'kite':case 'balloon':contact=Math.abs(y-ob.alt)<11;break;case 'carwind':case 'alleywind':contact=y<48;break}if(!contact)continue;
 if(ob.kind==='carwind'){flight.vx+=16*dt;flight.vy+=26*dt;continue}if(ob.kind==='alleywind'){flight.vx+=21*dt;continue}if(ob.kind==='window'){ob.used=true;flight.vy+=10;flight.vx+=7;notify('창문 반사 바람을 탔습니다!');continue}
 if(state.boosts.shield>0){state.boosts.shield--;ob.used=true;banner('🛡️ 보호막이 충돌을 막았습니다!');sparkles('🛡️',8);sfx('event');return}ob.used=true;flight.collisions++;sfx('hit');sparkles('💥',8);flight.vx*=ob.kind==='line'?.82:.55;flight.vy=Math.max(1,Math.abs(flight.vy)*.23);notify('장애물 충돌 · '+ob.kind)} }
-function updateFlight(dt){if(state.flightState!=='flying'||!flight||$('#mapOverlay').classList.contains('show'))return;let f=flight,c=state.current,p=effectivePlaneStats(selectedPlane());f.t+=dt;let speed=Math.hypot(f.vx,f.vy),wind=c.wind+(c.weather.id==='storm'?Math.sin(f.t*3+f.x*.017)*7:Math.sin(f.t*.8+f.x*.009)*1.25),drag=.012*c.weather.drag/p.glide;
-f.vx+=(wind*.32/p.stable-f.vx*drag)*dt;f.vy+=(-20.7+(speed/110)*2.4*p.lift*c.weather.lift-f.vy*drag*.38)*dt;
+function applyFlightForces(f,dt,c,p){
+ const speed=Math.hypot(f.vx,f.vy);
+ const wind=c.wind+(c.weather.id==='storm'?Math.sin(f.t*3+f.x*.017)*7:Math.sin(f.t*.8+f.x*.009)*1.25);
+ const drag=.012*c.weather.drag/p.glide;
+ f.vx+=(wind*.32/p.stable-f.vx*drag)*dt;
+ f.vy+=(-20.7+(speed/110)*2.4*p.lift*c.weather.lift-f.vy*drag*.38)*dt;
+}
+function updatePracticeAim(angle,power){
+ const c=state.current,p=effectivePlaneStats(practicePlane),dt=1/60;
+ const f={x:0,y:2.7,t:0,...initialVelocity(angle*Math.PI/180,power/100,c,practicePlane)};
+ const points=[];
+ for(let tick=1;tick<=900;tick++){
+  f.t+=dt;applyFlightForces(f,dt,c,p);
+  f.x+=f.vx*dt;f.y+=f.vy*dt;
+  if(f.y<=0)break;
+  if(tick%8===0)points.push([f.x,f.y]);
+ }
+ practiceAim={points,distance:f.x};
+ $('#practiceEstimate').textContent='예상 착륙 '+metre(f.x);
+}
+function updateFlight(dt){
+ if(state.flightState!=='flying'||!flight||$('#mapOverlay').classList.contains('show'))return;
+ if(training&&tutorial.waitingForInput())return;
+ const f=flight,c=state.current,p=effectivePlaneStats(selectedPlane());
+ f.t+=dt;applyFlightForces(f,dt,c,p);
 for(const z of c.zones){if(f.x>=z.x&&f.x<=z.x+z.w&&f.y<140){f.vy+=(z.kind==='up'?1:-1)*z.strength*(z.kind==='up'?(p.upBoost||1):1)*dt*1.7;if(z.kind==='up'){f.vx+=1.2*dt;f.touchedUp=true}}}
-if(!f.eventRolled&&f.t>1.9){f.eventRolled=true;if(Math.random()<.52){const event=Math.random();if(event<.29){f.vx*=1.10;banner('💨 찬스! 갑작스런 순풍');}else if(event<.53){f.vy+=9;banner('🌀 상승 바람이 비행기를 띄웁니다');}else if(event<.78){f.vy-=13;banner('🌪️ 강한 하강 돌풍! 긴급 보정이 필요합니다');}else{f.extraCoins+=150+level()*30;banner('✉️ 공중 보너스 획득!');sparkles('✨',8)}sfx('event')}}
+if(!training&&!f.eventRolled&&f.t>1.9){f.eventRolled=true;if(Math.random()<.52){const event=Math.random();if(event<.29){f.vx*=1.10;banner('💨 찬스! 갑작스런 순풍');}else if(event<.53){f.vy+=9;banner('🌀 상승 바람이 비행기를 띄웁니다');}else if(event<.78){f.vy-=13;banner('🌪️ 강한 하강 돌풍! 긴급 보정이 필요합니다');}else{f.extraCoins+=150+level()*30;banner('✉️ 공중 보너스 획득!');sparkles('✨',8)}sfx('event')}}
  f.x+=f.vx*dt;f.y+=f.vy*dt;
  if(c.luckyRing&&!c.luckyRing.taken&&Math.abs(f.x-c.luckyRing.x)<17&&Math.abs(f.y-c.luckyRing.y)<19){c.luckyRing.taken=true;f.luckyCollected=true;f.extraCoins+=260+level()*35;banner('🍀 행운의 봉투! 추가 코인 획득');sparkles('mix',15);sfx('rare')}
 f.angle=limit(Math.atan2(-f.vy,Math.max(2,f.vx))*.42,-.7,.7);f.trail.push([f.x,f.y]);if(f.trail.length>150)f.trail.shift();handleObstacles(dt);
-updateFlightHud(f);
-if(f.y<=0||f.x<-25||f.x>10000||f.t>32){f.y=Math.max(0,f.y);completeFlight()}}
+const paused=training&&tutorial.advanceFlight(f.t,f.y,f.vy);
+updateFlightHud(f,paused);
+if(paused){tutorial.focusFlightControl();return;}
+if(f.y<=0||f.x<-25||f.x>10000||f.t>32){
+ f.y=Math.max(0,f.y);
+ if(training){
+  state.flightState='result';document.body.classList.remove('in-flight');
+  tutorial.complete(f.x,c.target);sfx('win');
+ }else completeFlight();
+}}
 function calculateReward(star,dist,c,p,oldAvg,rawBefore){let base=Math.floor((135+level()*15+(c.type==='distance'?55:25))*c.pack.pay*(1+star*.20)*(1+oldAvg*.12)*(1+(p.def.bonus||0))),extra=0;
 if(c.type==='distance'&&dist>c.goal){const above=dist-c.goal;extra=Math.floor(above*1.05+base*Math.min(3.2,above/c.goal*2.05))}
 const streakLength=star>=4?rawBefore+1:0,streakDisplayed=Math.max(0,streakLength-1),bonusLv=streakDisplayed>0?Math.min(10,Math.ceil(streakDisplayed/2)):0,combo=bonusLv?Math.floor((base+extra)*(.06*bonusLv)+streakDisplayed*25):0;
@@ -506,7 +585,7 @@ $('#brakeBtn').onclick=airBrake;$('#chestBtn').onclick=openChestUI;$('#lootOpenB
 $('#starAdBtn').onclick=applyStarReward;$('#modalPrimary').onclick=()=>dismissModal(true);$('#modalSecondary').onclick=()=>dismissModal(false);
 $('#mapLeft').onclick=()=>panMap(-240);$('#mapRight').onclick=()=>panMap(240);$('#mapClose').onclick=mapClose;
 world.addEventListener('pointerdown',e=>{
- if($('#mapOverlay').classList.contains('show')||$('#modalCover').classList.contains('show'))return;
+ if(training||$('#mapOverlay').classList.contains('show')||$('#modalCover').classList.contains('show'))return;
  sceneDrag={x:e.clientX,aim:cameraAim,moving:false};try{world.setPointerCapture(e.pointerId)}catch(_){}
 });
 world.addEventListener('pointermove',e=>{
@@ -598,7 +677,16 @@ claimDaily=function(){ensureNewFields();const q=state.pendingDaily.find(p=>p.day
 function updateChestBadges(){const n=state.crates||0;$('#chestCount').textContent=String(n);$('#chestBtn').disabled=false;$('#chestBtn').classList.toggle('empty',n===0);$('#lootBalance').textContent=String(n);for(const el of $$('#lobbyShop,#chestBtn,.lucky-chest-card,.lucky-chest-card .action'))el.classList.toggle('lucky-ready',n>0)}
 function updatePlaneVisual(){const p=selectedPlane();if(!p)return;$('#planeSmallName').textContent=p.def.name;$('#planeWing').setAttribute('fill',p.def.color||'#fff');const eff=effectivePlaneStats(p);const stats=`속도 ${Math.round(eff.speed*100)} · 활공 ${Math.round(eff.glide*100)} · 안정 ${Math.round(eff.stable*100)}`;$('#planeStatsPreview').textContent=stats;const x=state.xp%180,lv=rankLevel();$('#rankLabel').textContent=`🎖️ Lv.${lv} 우체부`;$('#rankXp').textContent=`${x} / 180 XP`;$('#rankXpFill').style.width=(x/180*100)+'%';$('#loadoutNote').textContent=`장비 효과 · 충돌 방어막 ${state.boosts.shield}개 · 순풍 강화 ${state.boosts.tailwind}회`;$('#fineAngle').textContent=$('#angle').value+'°';$('#finePower').textContent=$('#power').value+'%';}
 function cyclePlane(by){const options=ownedFlat().filter(p=>p.p.dur>0);if(!options.length)return;const key=selectedPlane()?.key;const at=options.findIndex(p=>p.key===key);const nx=options[(at+by+options.length)%options.length];state.selectedPlaneKey=nx.key;renderPlaneSelect();updatePlaneVisual();autosave();sfx('event');}
-function setTuning(a,p){$('#angle').value=limit(Math.round(a),6,78);$('#power').value=limit(Math.round(p),20,100);state.launchAngle=Number($('#angle').value);state.launchPower=Number($('#power').value);$('#angleValue').textContent=state.launchAngle+'°';$('#powerValue').textContent=state.launchPower+'%';updatePlaneVisual();autosave()}
+function setTuning(a,p){
+ const angle=limit(Math.round(a),6,78),power=limit(Math.round(p),20,100);
+ $('#angle').value=angle;$('#power').value=power;
+ $('#angleValue').textContent=angle+'°';$('#powerValue').textContent=power+'%';
+ if(training)updatePracticeAim(angle,power);
+ else{
+  state.launchAngle=angle;state.launchPower=power;
+  updatePlaneVisual();autosave();
+ }
+}
 function applySavedTuning(){ensureNewFields();$('#angle').value=state.launchAngle;$('#power').value=state.launchPower;$('#angleValue').textContent=state.launchAngle+'°';$('#powerValue').textContent=state.launchPower+'%';}
 function baseDockHeight(){const h=innerHeight;return h<391&&innerWidth>h?190:h<531&&innerWidth>h?194:innerWidth<innerHeight?262:216}
 function limitDockHeight(v){const hud=innerHeight<531&&innerWidth>innerHeight?45:53;return limit(v,Math.min(baseDockHeight(),innerHeight-hud-65),Math.max(100,innerHeight-hud-75))}
@@ -947,19 +1035,20 @@ function updateDeliveryScreen(){
  const d=state.delivery,step=limit((d?.played||0)+1,1,3);
  const ready=state.flightState==='ready'&&!!state.current&&started;
  $('#readyFlight').classList.toggle('show',ready);
- $('#deliveryPill').textContent='배송 '+step+' / 3';
+ $('#deliveryPill').textContent=training?'연습 비행':'배송 '+step+' / 3';
+ $('#practiceEstimate').hidden=!training||!ready;
  $$('.round-marks i').forEach((mark,i)=>{
   mark.classList.toggle('active',i===step-1);
   mark.classList.toggle('finished',i<(d?.played||0));
  });
- $('#readyTitle').textContent=(state.gameMode==='stage'?`STAGE ${state.stageSelected} · `:'')+`배송 ${step} / 3`;
+ $('#readyTitle').textContent=training?'연습 비행':(state.gameMode==='stage'?`STAGE ${state.stageSelected} · `:'')+`배송 ${step} / 3`;
  const c=state.current;
  $('#readyScenario').textContent=c?.scenarioName||'출발 준비';
  $('#readyDetail').textContent=c?`${c.weather.icon} ${c.weather.name} · ${c.pack.name} · 무게 ${(c.weight*100).toFixed(1)}%`:'비행 준비';
  $('#readyGoalChip').textContent=c?metre(c.type==='accuracy'?c.target:c.goal):'—';
  $('#readyRoundTip').textContent=c?.scenarioHint||'비행기와 발사 설정을 조정하세요';
  syncReadyFlightControls();
- $('#battleLaunch').disabled=!ready;
+ $('#battleLaunch').disabled=!ready||(training&&!tutorial.canLaunch());
 }
 function concludeDelivery(){
  const d=state.delivery;if(!d?.active||d.played<3)return;
@@ -1068,6 +1157,9 @@ const renderNewRecords=renderRecords;
 renderRecords=function(){renderNewRecords();appendAchievements();};
 function stageTheme(n){const names=['햇살 평원','호숫가 돌풍','달빛 골목','하늘 우편로','산들바람 정상'];return names[(n-1)%5]}
 function showLobby(){
+ if(training){training=false;practiceAim=null;applySavedTuning();}
+ document.body.classList.remove('training-mode');
+ $('#practiceEstimate').hidden=true;
  started=false;clearTimeout(nextTimer);nextTimer=null;flight=null;state.current=null;state.lastResult=null;
  state.flightState=state.gameOver?'gameover':'ready';
  document.body.classList.remove('in-flight','playing');document.body.classList.add('lobby-mode');
@@ -1098,7 +1190,22 @@ function cloudTransition(action){
  setTimeout(()=>{action();el.className='live opening'},660);
  setTimeout(()=>{el.className='';changingScene=false},1450);
 }
+function startPractice(onReady){
+ cloudTransition(()=>{
+  training=started=true;
+  clearTimeout(nextTimer);nextTimer=null;flight=null;cameraX=cameraAim=0;
+  manualCamera=false;sceneDrag=null;zoomInitialized=false;groundLift=0;
+  document.body.classList.remove('lobby-mode','in-flight');
+  document.body.classList.add('playing','training-mode');
+  $('#lobby').classList.remove('show');setDockHeight(59,false);
+  state.current={type:'accuracy',weather:weatherDefs[0],pack:packages[0],weight:1,wind:0,
+   target:145,region:regions[0],zones:[],obstacles:[],scenarioName:'연습 활주로'};
+  state.flightState='ready';$('#mission').open=false;
+  updateMission();setTuning(11,38);updateDeliveryScreen();sizeWorld();onReady();
+ });
+}
 function beginSelectedMode(){
+ if(tutorial.offerPractice())return tutorial.begin();
  if(state.gameOver)return openModal({mark:'📪',title:'영업 종료',message:'새 인생을 시작해야 다시 도전할 수 있습니다.',primary:'새 인생',secondary:'취소',action:offerNewLife});
  cloudTransition(()=>{
   beginDeliverySession();
@@ -1108,6 +1215,7 @@ function beginSelectedMode(){
  });
 }
 function goToLobby(){
+ if(training)return tutorial.leave();
  if(changingScene)return;
  if(state.flightState==='flying')return openModal({mark:'📮',title:'배송 중단',message:'진행 중인 이번 판을 중단하고 로비로 돌아가시겠습니까?',tip:'중단 수수료 120원',primary:'로비로',secondary:'계속 배송',action:()=>{pay(120,'배송 중단 수수료');cloudTransition(showLobby)}});
  cloudTransition(showLobby);
@@ -1173,6 +1281,7 @@ bind=function(){
  let tuningFocusTimer=0;
  const prep=$('#readyFlight');
  const focusStart=(surface)=>{
+  if(training&&surface==='prep')return;
   clearTimeout(tuningFocusTimer);
   prep.classList.toggle('tuning-focus',surface==='prep');
   dockEl.classList.toggle('tuning-focus',surface==='dock');
@@ -1354,7 +1463,7 @@ function renderSettings(){
  };
  const b=card('🔊','소리',state.sound?'켜짐':'꺼짐',state.sound?'ON':'OFF',()=>{state.sound=!state.sound;if(state.sound)sfx('event');renderSettings();save()});b.setAttribute('aria-pressed',String(state.sound));
  card('📤','백업 내보내기','진행 상황 저장','내보내기',exportBackup);
- card('🕹️','조작 안내','첫 비행 안내 다시 보기','다시 보기',()=>tutorial.replay());
+ card('🕹️','비행 연습','각도, 발사, 방향 보정과 제동','튜토리얼 다시 보기',()=>tutorial.begin());
  card('📥','백업 불러오기','저장한 파일 복원','불러오기',()=>$('#backupInput').click());
  const legacy=state.legacy||{};
  card('🌱','새 인생 시작',`${Number(legacy.lives)||1}번째 인생`,'다시 태어나기',offerNewLife,'action buy');
@@ -1435,13 +1544,16 @@ document.addEventListener('pointerdown',e=>{if(e.target.closest('button:not(:dis
 const tutorial = createTutorial({
  getState: () => state,
  save,
- closeMenu: () => setDockHeight(59, false),
- canShow: () => !changingScene && !document.hidden &&
+ startPractice,
+ exitPractice(keyboard) {
+  showLobby();
+  if(keyboard)$('#lobbyStart').focus({preventScroll:true});
+ },
+ canShow: () => !changingScene && !document.hidden && !document.body.classList.contains('booting') &&
   !['#modalCover', '#lootOverlay', '#mapOverlay', '#deliveryOverlay'].some(selector => $(selector).classList.contains('show')),
  isLobby: () => document.body.classList.contains('lobby-mode'),
  menuOpen: () => dockEl.classList.contains('expanded'),
  activeMenu: () => $('.tab.active')?.dataset.panel,
- currentType: () => state.current?.type,
 });
 
 export function bootGame({ progress, onReady }) {
@@ -1477,6 +1589,7 @@ export function bootGame({ progress, onReady }) {
     aimAngle: Number($('#angle').value),
     aimPower: Number($('#power').value),
     aimSpeed: plane ? effectivePlaneStats(plane).speed * (state.boosts.tailwind > 0 ? 1.1 : 1) : 1,
+    practiceAim,
     aiming: state.flightState === 'ready' && !!state.current,
    };
   },

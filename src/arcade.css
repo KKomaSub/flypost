@@ -172,39 +172,6 @@ body.playing .result .result-details, body.playing .result #resultNext { color: 
 .boot-status { display: flex; justify-content: space-between; width: min(260px,75vw); font-size: 12px; color: #c7dfeb; }
 #bootRetry { border: 1px solid #f3c28d; border-radius: 8px; padding: 7px 12px; color: var(--cream); background: #254664; }
 
-#fieldGuide { position: fixed; inset: 0; z-index: 227; pointer-events: none; }
-#guideFocus {
-  position: absolute; border: 2px solid #ffd28c; border-radius: 24px;
-  box-shadow: 0 0 0 180vmax #0614264d, 0 0 20px #ffd28c4a;
-}
-#guideCue {
-  position: absolute; z-index: 1; font-size: 34px; line-height: 1;
-  filter: drop-shadow(0 4px 2px #0c253d80); animation: guidePoint 1.1s ease-in-out infinite;
-}
-@keyframes guidePoint { 50% { translate: 0 5px; } }
-#guideCard {
-  position: absolute; display: flex; align-items: center; gap: 9px; width: min(385px,calc(100vw - 24px));
-  min-height: 52px; padding: 7px 8px 7px 10px; border: 1px solid #ebc792; border-radius: 12px;
-  background: #172e46f5; color: var(--cream); box-shadow: 0 4px #0a2036,0 8px 19px #1024385e;
-}
-#guideCard.compact {
-  left: max(12px,env(safe-area-inset-left)); top: max(12px,env(safe-area-inset-top));
-  width: auto; min-height: 0; border: 0; box-shadow: none; padding: 0; background: transparent;
-}
-#guideCard.compact div { display: none; }
-#guideBadge {
-  flex: 0 0 30px; height: 30px; display: grid; place-items: center; font-size: 18px;
-  color: #233c4c; background: #f6c788; border-radius: 8px;
-}
-#guideCard div { flex: 1; min-width: 0; }
-#guideTitle { display: block; font-size: 12px; line-height: 1.2; }
-#guideText { display: block; color: #d6e6e8; margin-top: 3px; font-size: 11px; line-height: 1.35; }
-#guideSkip {
-  pointer-events: auto; flex: none; min-height: 32px; padding: 4px 7px; font-size: 10px;
-  font-weight: 850; color: #fff2d7; background: #263e57; border: 1px solid #98adb67b; border-radius: 7px;
-}
-#guideCard.compact #guideSkip { background: #152d46d9; padding: 5px 10px; }
-
 @media (orientation: portrait) {
   #lobby .lobby-shell { grid-template-columns: 1fr; gap: 12px; max-width: 540px; }
   #lobby .lobby-hero { min-height: clamp(165px,31vh,350px); padding: 0 4px 3px; }
@@ -227,7 +194,6 @@ body.playing .result .result-details, body.playing .result #resultNext { color: 
   #lobby .lobby-mode-body > span, #lobby .lobby-footer { display: none; }
   #lobby .lobby-start { min-height: 36px; font-size: 15px; margin-bottom: 1px; }
   #lobby .lobby-actions button { min-height: 27px; }
-  #guideCard { min-height: 42px; padding-block: 4px; }
 }
 @media (orientation: landscape) and (max-width: 610px) {
   body.playing #deliveryPill { right: 12px; top: 49px; }
@@ -239,6 +205,6 @@ body.playing .result .result-details, body.playing .result #resultNext { color: 
   #lobby .lobby-start { min-height: 42px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .boot-mark span, #guideCue { animation: none; }
+  .boot-mark span { animation: none; }
   #bootScreen { transition: none; }
 }

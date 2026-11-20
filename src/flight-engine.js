@@ -272,6 +272,15 @@ class Airfield extends Phaser.Scene {
         const a = project(...trail[i - 1]), b = project(...trail[i]);
         g.lineStyle(2.4, 0xfff1c8, .15 + .69 * i / trail.length).lineBetween(a.x, a.y, b.x, b.y);
       }
+    } else if (view.aiming && view.practiceAim) {
+      for (const [x, y] of view.practiceAim.points) {
+        const dot = project(x, y);
+        if (dot.x > w || dot.y < 0) continue;
+        g.fillStyle(0x254438, .7).fillCircle(dot.x, dot.y + 1, 3.8);
+        g.fillStyle(0xffe49a).fillCircle(dot.x, dot.y, 2.8);
+      }
+      const landing = project(view.practiceAim.distance, 0);
+      g.lineStyle(2, 0xffdd8c).strokeCircle(landing.x, landing.y, 7);
     } else if (view.aiming) {
       const angle = view.aimAngle * Math.PI / 180;
       const speed = (55 + view.aimPower * .8) * view.aimSpeed / (mission.weight || 1);

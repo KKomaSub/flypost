@@ -1,146 +1,79 @@
-const GUIDE_VERSION = 2;
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const GUIDE_VERSION = 3;
 
-export function guidePosition(rect, viewport, card, gap = 13) {
-  const inset = 12;
-  const anchor = (rect.left + rect.right) / 2;
-  const left = clamp(anchor - card.width / 2, inset, viewport.width - card.width - inset);
-  const above = rect.top - card.height - gap;
-  const below = rect.bottom + gap;
-  const fitsAbove = above >= inset;
-  const fitsBelow = below + card.height <= viewport.height - inset;
-  const top = fitsAbove ? above : fitsBelow ? below : clamp(above, inset, viewport.height - card.height - inset);
-  return { left, top };
-}
+const lessons = {
+  angle: { step: 1, title: '각도 맞추기', text: '각도를 움직여 점선이 어떻게 올라가는지 보세요.', target: '#readyAngle', area: '.prep-tuning:has(#readyAngle)' },
+  power: { step: 1, title: '힘 조절하기', text: '힘을 바꿔 점선 끝의 착륙 지점을 움직여 보세요.', target: '#readyPower', area: '.prep-tuning:has(#readyPower)' },
+  launch: { step: 2, title: '이륙하기', text: '점선 끝을 과녁에 가까이 맞추고 발사하세요.', target: '#battleLaunch' },
+  takeoff: { step: 3, title: '방향 바꾸기', text: '비행기가 떠오르면 방향을 보정해 볼 거예요.' },
+  correct: { step: 3, title: '방향 바꾸기', text: '비행을 잠시 멈췄어요. 방향 버튼을 하나 눌러 보세요.', target: '#upBtn', area: '.flight-pad' },
+  coast: { step: 4, title: '속도 줄이기', text: '보정한 방향으로 날고 있어요.' },
+  brake: { step: 4, title: '속도 줄이기', text: '제동을 누르면 속도를 줄이면서 착륙을 이어가요.', target: '#brakeBtn' },
+  landing: { step: 4, title: '착륙 지점 확인', text: '과녁과 비행기가 어디에 닿는지 확인해 보세요.' },
+  result: { step: 4, title: '연습 비행 완료!' },
+};
 
-export function createTutorial({ getState, save, closeMenu, canShow, isLobby, menuOpen, activeMenu, currentType }) {
+const tips = {
+  shop: { title: '격납고', text: '상점에서 새 기체를 구매하거나 뽑아 격납고를 채울 수 있어요.' },
+  insurance: { title: '배송 보험', text: '보험을 켜면 비행마다 보험료를 내고 사고 손실의 70%를 보전받아요.' },
+  express: { title: '특급 배송', text: '14초 이내에 4★ 이상이면 보수 +35%. 실패하면 위약금이 있어요.' },
+  route: { title: '장거리 배송', text: '이번 의뢰는 과녁에 맞추는 대신 목표 거리를 넘겨야 해요.' },
+};
+
+export function createTutorial({ getState, save, canShow, isLobby, menuOpen, activeMenu, startPractice, exitPractice }) {
   const query = selector => document.querySelector(selector);
+  const welcome = query('#tutorialWelcome');
+  const start = query('#lobbyStart');
   const guide = query('#fieldGuide');
-  const focus = query('#guideFocus');
-  const cue = query('#guideCue');
-  const card = query('#guideCard');
-  const badge = query('#guideBadge');
+  const progress = query('#guideProgress');
   const title = query('#guideTitle');
   const text = query('#guideText');
-  const skip = query('#guideSkip');
-  let stage = 'idle';
-  let shown = '';
-  let startedHint = 0;
-  let contextual = null;
+  const stats = query('#guideStats');
+  const exit = query('#guideExit');
+  const angle = query('#readyAngle');
+  const power = query('#readyPower');
+  let phase = 'idle';
+  let pauseAt = 0;
+  let keyboardFlight = false;
+  let highlighted = null;
+  let tip = null;
   let initialized = false;
+  let tipShown = false;
 
-  const lessons = {
-    start: { area: '.lobby-panel', pointer: '#lobbyStart', shade: true },
-    setup: { area: '#mission summary', below: true, icon: '✈', title: '발사 준비' },
-    flight: { area: '#mission summary', below: true, icon: '↗', title: '비행 중 보정', text: '화살표로 방향을 보정하고, 제동으로 속도를 줄여요.' },
-  };
-  const tips = {
-    shop: { area: '#dock', icon: '✈', title: '격납고', text: '잠금이 풀린 기체를 구매하면 바로 선택돼요.' },
-    insurance: { area: '#dock', icon: '🛡', title: '배송 보험', text: '비행마다 보험료를 내고 사고 손실의 70%를 보전받아요.' },
-    express: { area: '#lobbyExpress', icon: '⚡', title: '특급 배송', text: '14초 이내에 4★ 이상이면 보수 +35%. 실패하면 위약금이 있어요.' },
-    route: { area: '#mission summary', below: true, icon: '⚑', title: '장거리 배송', text: '착륙 위치보다 얼마나 멀리 날았는지가 중요해요.' },
-  };
-
-  function clear() {
-    guide.hidden = true;
-    shown = '';
+  function dismissWelcome() {
+    welcome.hidden = true;
+    start.classList.remove('tutorial-target');
   }
 
-  function finish() {
-    getState().tutorial.done = true;
-    stage = 'idle';
-    clear();
-    save();
+  function markDone() {
+    if (!getState().tutorial.done) {
+      getState().tutorial.done = true;
+      save();
+    }
   }
 
-  function showTip(key) {
-    const progress = getState().tutorial;
-    if (!progress || progress.tips[key]) return;
-    progress.tips[key] = true;
-    contextual = { key, expires: performance.now() + 4700 };
-    save();
-  }
-
-  function present(key, lesson) {
-    const area = query(lesson.area);
-    const rect = area?.getBoundingClientRect();
-    if (!rect?.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight) return clear();
-    if (shown !== key) {
-      guide.className = lesson.shade ? 'guide-shaded' : '';
-      guide.hidden = false;
-      focus.hidden = !lesson.shade;
-      cue.hidden = !lesson.pointer;
-      card.classList.toggle('compact', !lesson.title);
-      badge.hidden = !lesson.icon;
-      badge.textContent = lesson.icon || '';
-      title.textContent = lesson.title || '';
-      text.textContent = lesson.text || '';
-      skip.textContent = lessons[key] ? '건너뛰기' : '닫기';
-      shown = key;
+  function showLesson(next, keyboard = false) {
+    const lesson = lessons[next];
+    phase = next;
+    highlighted?.classList.remove('tutorial-target');
+    const area = lesson.area || lesson.target;
+    highlighted = area ? query(area) : null;
+    highlighted?.classList.add('tutorial-target');
+    const target = lesson.target && query(lesson.target);
+    guide.dataset.view = next === 'result' ? 'result' : 'lesson';
+    progress.hidden = false;
+    progress.setAttribute('aria-label', '연습 단계 ' + lesson.step + ' / 4');
+    [...progress.children].forEach((pip, i) => pip.classList.toggle('lit', i < lesson.step));
+    title.textContent = lesson.title;
+    text.textContent = lesson.text || '';
+    text.hidden = !lesson.text;
+    stats.hidden = next !== 'result';
+    exit.textContent = next === 'result' ? '로비로' : '연습 종료';
+    guide.hidden = false;
+    power.disabled = next === 'angle';
+    if (keyboard) {
+      if (target && !target.disabled) target.focus({ preventScroll: true });
+      else if (next === 'result') exit.focus({ preventScroll: true });
     }
-
-    const left = clamp(rect.left - 6, 3, innerWidth - 7);
-    const top = clamp(rect.top - 6, 3, innerHeight - 7);
-    const right = clamp(rect.right + 6, left + 1, innerWidth - 3);
-    const bottom = clamp(rect.bottom + 6, top + 1, innerHeight - 3);
-    if (!focus.hidden) {
-      Object.assign(focus.style, {
-        left: left + 'px', top: top + 'px', width: right - left + 'px', height: bottom - top + 'px',
-      });
-      const button = query(lesson.pointer).getBoundingClientRect();
-      cue.style.left = clamp(button.right - 48, 9, innerWidth - 52) + 'px';
-      cue.style.top = clamp(button.top - 33, 7, innerHeight - 38) + 'px';
-    }
-    if (!lesson.title) return;
-    const clipped = { left, top, right, bottom };
-    const size = { width: card.offsetWidth, height: card.offsetHeight };
-    const pos = lesson.below
-      ? { left: key === 'flight' && innerWidth > innerHeight
-        ? innerWidth - size.width - 13 : Math.max(12, left), top: bottom + 6 }
-      : guidePosition(clipped, { width: innerWidth, height: innerHeight }, size);
-    card.style.left = pos.left + 'px';
-    card.style.top = pos.top + 'px';
-  }
-
-  function sync() {
-    if (!initialized) return;
-    if (!canShow() || !isLobby() && query('#mission').open) {
-      clear();
-      return;
-    }
-    const now = performance.now();
-    const state = getState();
-    const atLobby = isLobby();
-    if (stage === 'start' && !atLobby && state.current) stage = 'setup';
-    if (stage === 'setup' && atLobby) stage = 'start';
-    if (stage === 'setup' && state.flightState === 'flying') {
-      stage = 'flight';
-      startedHint = now;
-    }
-    if (stage === 'flight' && (state.flightState !== 'flying' || now - startedHint > 4300)) finish();
-
-    if (stage === 'start' && !menuOpen()) return present('start', lessons.start);
-    if (stage === 'setup') {
-      const type = currentType();
-      const instruction = type === 'accuracy'
-        ? '과녁에 맞춰 각도와 힘을 조절한 뒤 날려 보세요.'
-        : '희망 거리보다 멀리 날도록 각도와 힘을 조절해 보세요.';
-      const previous = lessons.setup.text;
-      lessons.setup.text = instruction;
-      if (previous !== instruction) shown = '';
-      return present('setup', lessons.setup);
-    }
-    if (stage === 'flight') return present('flight', lessons.flight);
-
-    const tip = contextual;
-    if (tip && now < tip.expires) {
-      const appropriate = tip.key === 'route'
-        ? !atLobby && state.flightState === 'ready'
-        : atLobby && (tip.key === 'express' ? !menuOpen() : menuOpen() && activeMenu() === (tip.key === 'shop' ? 'shop' : 'play'));
-      if (appropriate) return present(tip.key, tips[tip.key]);
-    }
-    contextual = null;
-    clear();
   }
 
   function init() {
@@ -152,43 +85,146 @@ export function createTutorial({ getState, save, closeMenu, canShow, isLobby, me
       done: typeof saved?.done === 'boolean' ? saved.done : veteran,
       tips: saved?.tips && typeof saved.tips === 'object' ? saved.tips : {},
     };
-    stage = state.tutorial.done ? 'idle' : 'start';
     initialized = true;
-    save();
   }
 
-  function replay() {
-    getState().tutorial.done = false;
-    contextual = null;
-    stage = 'start';
-    if (isLobby()) closeMenu();
-    save();
-    sync();
+  function begin() {
+    const keyboard = document.activeElement?.matches(':focus-visible');
+    tip = null;
+    tipShown = false;
+    dismissWelcome();
+    startPractice(() => {
+      showLesson('angle', keyboard);
+    });
   }
 
-  skip.onclick = () => {
-    if (stage === 'idle') {
-      contextual = null;
-      clear();
-    } else finish();
+  function leave() {
+    const keyboard = document.activeElement?.matches(':focus-visible');
+    markDone();
+    phase = 'idle';
+    highlighted?.classList.remove('tutorial-target');
+    highlighted = null;
+    power.disabled = false;
+    guide.hidden = true;
+    exitPractice(keyboard);
+  }
+
+  query('#tutorialSkip').onclick = () => {
+    const keyboard = document.activeElement?.matches(':focus-visible');
+    markDone();
+    dismissWelcome();
+    if (keyboard) start.focus({ preventScroll: true });
   };
 
-  document.addEventListener('click', event => {
-    if (!initialized || !canShow()) return;
-    const button = event.target.closest?.('button');
-    if (!button) return;
-    if (button.matches('#leftBtn,#rightBtn,#upBtn,#downBtn,#brakeBtn') && stage === 'flight') {
-      finish();
-      return;
-    }
-    if (button.matches('#lobbyShop,[data-tab="shop"]') && isLobby()) showTip('shop');
-    else if (button.matches('#lobbyPrepare,[data-tab="play"]') && isLobby()) showTip('insurance');
-    else if (button.matches('#lobbyExpress') && isLobby() && getState().riskMode) showTip('express');
+  angle.addEventListener('change', () => {
+    if (phase === 'angle') showLesson('power', angle.matches(':focus-visible'));
+  });
+  power.addEventListener('change', () => {
+    if (phase !== 'power') return;
+    const launch = query('#battleLaunch');
+    launch.disabled = false;
+    showLesson('launch', power.matches(':focus-visible'));
   });
 
-  function routeReady() {
-    if (stage === 'idle' && currentType() === 'distance') showTip('route');
+  exit.onclick = () => {
+    if (phase !== 'idle') leave();
+    else if (tip) {
+      tip = null;
+      tipShown = false;
+      guide.hidden = true;
+    }
+  };
+
+  function complete(distance, target) {
+    markDone();
+    query('#guideDistance').textContent = Math.max(0, Math.round(distance)) + 'm';
+    query('#guideError').textContent = Math.round(Math.abs(distance - target)) + 'm';
+    showLesson('result', true);
   }
 
-  return { init, sync, replay, routeReady };
+  function queueTip(key) {
+    if (phase !== 'idle' || !getState().tutorial.done || getState().tutorial.tips[key]) return;
+    tipShown = false;
+    tip = { key, expires: performance.now() + 5300 };
+  }
+
+  function sync() {
+    if (!initialized) return;
+    if (phase !== 'idle') return;
+    const visible = canShow();
+    const invite = visible && isLobby() && !menuOpen() && !getState().tutorial.done;
+    if (invite === welcome.hidden) {
+      welcome.hidden = !invite;
+      start.classList.toggle('tutorial-target', invite);
+    }
+    const showTip = tip && visible && performance.now() < tip.expires && (tip.key === 'route'
+      ? !isLobby() && getState().flightState === 'ready'
+      : isLobby() && (tip.key === 'express' ? !menuOpen() : menuOpen() && activeMenu() === (tip.key === 'shop' ? 'shop' : 'play')));
+    if (!showTip) {
+      if (tip && performance.now() >= tip.expires) tip = null;
+      if (tipShown) guide.hidden = true;
+      tipShown = false;
+      return;
+    }
+    if (tipShown) return;
+    const copy = tips[tip.key];
+    guide.dataset.view = tip.key === 'route' ? 'route-tip' : 'lobby-tip';
+    title.textContent = copy.title;
+    text.textContent = copy.text;
+    text.hidden = false;
+    progress.hidden = stats.hidden = true;
+    exit.textContent = '닫기';
+    guide.hidden = false;
+    tipShown = true;
+    getState().tutorial.tips[tip.key] = true;
+    save();
+  }
+
+  document.addEventListener('click', event => {
+    if (!initialized || !canShow() || !isLobby()) return;
+    const button = event.target.closest?.('button');
+    if (button?.matches('#lobbyShop,[data-tab="shop"]')) queueTip('shop');
+    if (button?.matches('#lobbyPrepare,[data-tab="play"]')) queueTip('insurance');
+    if (button?.matches('#lobbyExpress') && getState().riskMode) queueTip('express');
+  });
+
+  document.addEventListener('keydown', event => {
+    if (phase === 'idle' || event.defaultPrevented) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      leave();
+    }
+  });
+
+  return {
+    init, sync, begin, leave, complete,
+    offerPractice: () => !getState().tutorial.done,
+    canLaunch: () => phase === 'launch',
+    canCorrect: () => phase === 'correct' || phase === 'landing',
+    canBrake: () => phase === 'brake',
+    waitingForInput: () => phase === 'correct' || phase === 'brake',
+    routeReady: () => { if (getState().current?.type === 'distance') queueTip('route'); },
+    launched() {
+      keyboardFlight = document.activeElement?.matches(':focus-visible');
+      showLesson('takeoff');
+    },
+    advanceFlight(elapsed, altitude, verticalSpeed) {
+      if (phase === 'takeoff' && elapsed >= .33) showLesson('correct');
+      else if (phase === 'coast' && (elapsed >= pauseAt || (altitude < 1.5 && verticalSpeed < 0))) showLesson('brake');
+      else return false;
+      return true;
+    },
+    focusFlightControl() {
+      if (!keyboardFlight) return;
+      const target = lessons[phase]?.target;
+      if (target) query(target).focus({ preventScroll: true });
+    },
+    corrected(elapsed) {
+      if (phase !== 'correct') return;
+      keyboardFlight = document.activeElement?.matches(':focus-visible');
+      pauseAt = elapsed + .42;
+      showLesson('coast');
+    },
+    braked: () => showLesson('landing'),
+  };
 }

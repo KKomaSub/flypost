@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/src/flight-ui.css">
 <link rel="stylesheet" href="/src/loot-ui.css">
 <link rel="stylesheet" href="/src/fusion.css">
+<link rel="stylesheet" href="/src/tutorial.css">
 </head>
 <body class="booting">
 <section id="bootScreen" aria-label="게임 로딩">
@@ -33,16 +34,22 @@
    <div class="mode-switch" id="modeSwitch"><button type="button" data-mode="random" class="active"><span>♾</span> 랜덤 모드</button><button type="button" data-mode="stage"><span>🏁</span> 스테이지</button></div>
    <div id="lobbyRandom" class="sr-only">무작위 항로 · 3판</div>
    <div class="lobby-mode-body" id="lobbyStage" hidden><div class="stage-picker"><button type="button" id="stagePrev" aria-label="이전 스테이지">‹</button><div><small>STAGE</small><strong id="stageNumber">01</strong><span id="stageName">햇살 평원</span></div><button type="button" id="stageNext" aria-label="다음 스테이지">›</button></div><div class="stage-stars" id="stageStars">☆☆☆</div><div class="lobby-line" id="stageDesc">별점 3개 이상으로 다음 스테이지 해금</div><span class="lobby-chip sr-only" id="lobbyProgress">STAGE 01</span></div>
-   <button type="button" id="lobbyExpress" class="lobby-express" aria-pressed="false"><span>⚡ 특급 배송</span><b id="lobbyExpressState">OFF</b></button><div id="lobbyStreak" class="lobby-express streak-widget" role="group" aria-label="배달 연승"><span class="streak-label">연승</span><div id="streakTrack" class="streak-track" role="progressbar" aria-label="연승 보상 진행" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div><div id="streakFlame" class="streak-flame"><svg viewBox="0 0 40 48" aria-hidden="true"><path d="M22 1c4 13-2 16 4 20 3-4 4-8 4-8 13 15 9 34-10 34C1 47-4 28 9 17c-1 8 3 10 5 10C9 15 20 13 22 1Z" fill="currentColor"/><path d="M21 23c-1 9-9 9-8 15 0 6 13 8 15 0 1-5-5-9-7-15Z" fill="#ffe9a5"/></svg><strong id="streakCount">0</strong></div></div><button type="button" id="lobbyStart" class="lobby-start"><span>비행 시작</span><span>➜</span></button>
+   <button type="button" id="lobbyExpress" class="lobby-express" aria-pressed="false"><span>⚡ 특급 배송</span><b id="lobbyExpressState">OFF</b></button><div id="lobbyStreak" class="lobby-express streak-widget" role="group" aria-label="배달 연승"><span class="streak-label">연승</span><div id="streakTrack" class="streak-track" role="progressbar" aria-label="연승 보상 진행" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div><div id="streakFlame" class="streak-flame"><svg viewBox="0 0 40 48" aria-hidden="true"><path d="M22 1c4 13-2 16 4 20 3-4 4-8 4-8 13 15 9 34-10 34C1 47-4 28 9 17c-1 8 3 10 5 10C9 15 20 13 22 1Z" fill="currentColor"/><path d="M21 23c-1 9-9 9-8 15 0 6 13 8 15 0 1-5-5-9-7-15Z" fill="#ffe9a5"/></svg><strong id="streakCount">0</strong></div></div><div id="tutorialWelcome" hidden>
+     <span class="tutorial-wing" aria-hidden="true">✈</span>
+     <div><strong>첫 비행 연습</strong><p>한 번 날려 보고 배송을 시작하세요.</p></div>
+     <button id="tutorialSkip" type="button">건너뛰기</button>
+   </div><button type="button" id="lobbyStart" class="lobby-start"><span>비행 시작</span><span class="tutorial-start-label">연습 비행 시작</span><span aria-hidden="true">➜</span></button>
    <div class="lobby-actions"><button id="lobbyParts" type="button">⚙ 부품 · 강화</button><button id="lobbyShop" type="button">🎁 상점 · 뽑기<span class="plane-new-badge" id="lobbyShopNew" hidden>NEW</span></button><button id="lobbyPrepare" type="button">✈ 비행</button></div>
    <div class="lobby-footer"><span id="lobbyDebt">빚 0원</span><span id="lobbyClears">클리어 0</span></div>
   </div>
  </div>
 </section>
-<aside id="fieldGuide" hidden aria-label="첫 비행 안내">
- <div id="guideFocus" aria-hidden="true"></div>
- <div id="guideCue" aria-hidden="true">👇</div>
- <div id="guideCard"><b id="guideBadge" aria-hidden="true"></b><div><strong id="guideTitle"></strong><span id="guideText" role="status"></span></div><button id="guideSkip" type="button">건너뛰기</button></div>
+<aside id="fieldGuide" hidden aria-label="비행 교관">
+ <div id="guideCard">
+  <div class="guide-top"><span id="guideProgress" role="img"><i></i><i></i><i></i><i></i></span><button id="guideExit" type="button">연습 종료</button></div>
+  <div class="guide-copy" role="status"><strong id="guideTitle"></strong><p id="guideText"></p></div>
+  <dl id="guideStats" hidden><div><dt>착륙 거리</dt><dd id="guideDistance"></dd></div><div><dt>과녁 오차</dt><dd id="guideError"></dd></div></dl>
+ </div>
 </aside>
 <div id="cloudCurtain" aria-hidden="true"><div class="cloud-pane left"></div><div class="cloud-pane right"></div><span>☁ 하늘로 출발 ☁</span></div>
 <div id="app">
@@ -63,6 +70,7 @@
    </div>
    <div class="route-score">
     <span id="deliveryPill" class="delivery-pill">배송 1 / 3</span>
+    <span id="practiceEstimate" hidden></span>
     <div class="round-marks" aria-hidden="true"><i></i><i></i><i></i></div>
    </div>
   </div>

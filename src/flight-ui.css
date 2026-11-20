@@ -269,7 +269,3 @@ body.playing #result .result-mini { background: #ecd4a575; border-color: #bc9866
   .route-icon { width: 30px; height: 30px; }
   #readyGoalChip { font-size: 18px; }
 }
-/* The guide can point at the whole launch rail without catching touches. */
-#guideCard { background: #26483ef5; border-color: #f1d7a0; box-shadow: 0 3px #183b34,0 6px 15px #163e3050; }
-#guideBadge { background: #ffda8a; color: #3a5540; }
-#guideSkip { background: #375f50; border-color: #ffe9b77e; }
