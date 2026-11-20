@@ -1,0 +1,183 @@
+.fusion-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin: 0 0 9px;
+  padding: 4px;
+  background: #1b352e;
+  border: 1px solid #89916c;
+  border-radius: 11px;
+}
+.fusion-tabs button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #fff2cb;
+  font-weight: 750;
+  font-size: 12px;
+}
+.fusion-tabs button[aria-pressed="true"] {
+  background: #fde6ab;
+  color: #384538;
+  box-shadow: inset 0 -2px #c9a76a;
+}
+.fusion-workshop-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 2px 0 9px;
+  color: #e6e9d1;
+}
+.fusion-workshop-bar small { font-size: 11px; }
+
+#fusionInventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,275px),1fr));
+  gap: 6px;
+}
+.fusion-row {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #d3b77a;
+  border-radius: 9px;
+  color: #324739;
+  background: #f6ebce;
+}
+.fusion-row strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.fusion-row small { display: block; margin-top: 3px; font-size: 10px; color: #526755; }
+.fusion-badge {
+  padding: 5px;
+  border-radius: 6px;
+  background: #dce6c0;
+  color: #40533b;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.fusion-badge[data-grade="1"] { background: #bfe5df; color: #235c64; }
+.fusion-badge[data-grade="2"] { background: #e3d0f1; color: #634480; }
+.fusion-badge[data-grade="3"] { background: #ffe3a0; color: #754a20; }
+
+.fusion-workshop-bar button, .fusion-row button, #fusionDialog button {
+  padding: 6px 9px;
+  min-height: 32px;
+  border: 1px solid #fff1c6;
+  border-radius: 8px;
+  background: linear-gradient(#ffdd91,#eeb265);
+  color: #483626;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.fusion-row button { min-height: 29px; }
+.fusion-row button:disabled, .fusion-workshop-bar button:disabled, #fusionDialog button:disabled {
+  opacity: .58;
+  filter: saturate(.35);
+}
+
+#fusionDialog {
+  width: min(440px,calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 14px;
+  margin: auto;
+  border: 1px solid #dec48e;
+  border-radius: 15px;
+  overflow: auto;
+  background: #263f34;
+  color: #fff1cc;
+  box-shadow: 0 6px #182d26,0 22px 65px #112720ac;
+}
+#fusionDialog::backdrop { background: #152d28b8; backdrop-filter: blur(4px); }
+#fusionDialog h2 { margin: 0 0 9px; font-size: 19px; letter-spacing: -.03em; }
+#fusionScore p { margin: 7px 0; font-size: 11px; color: #e6dec1; }
+#fusionDialog ul { list-style: none; margin: 7px 0 0; padding: 0; }
+#fusionDialog li {
+  padding: 6px 8px;
+  background: #f5eacb;
+  color: #35493b;
+  font-size: 11px;
+  border-bottom: 1px solid #d4be88;
+}
+#fusionDialog li:first-child { border-radius: 7px 7px 0 0; }
+#fusionDialog li:last-child { border-radius: 0 0 7px 7px; border-bottom: 0; }
+#fusionDialog li:only-child { border-radius: 7px; }
+#fusionDialog #fusionResults li { font-size: 13px; font-weight: 800; }
+#fusionDialog[data-phase="preview"] #fusionResults::before {
+  content: '최종 획득';
+  font-size: 11px;
+  display: block;
+  margin-bottom: 5px;
+  color: #ffdb89;
+}
+#fusionDialog[data-phase="fusing"] #fusionResults { display: none; }
+.fusion-actions { display: flex; justify-content: end; gap: 7px; margin-top: 12px; }
+#fusionDialog #fusionClose { background: #3e5845; color: #fff3d5; border-color: #a39467; }
+
+#fusionScene {
+  position: relative;
+  min-height: 135px;
+  overflow: hidden;
+  border: 1px solid #9a9367;
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 29px,#fff3b512 29px 30px),
+    radial-gradient(ellipse at 50% 65%,#496350,#223b33);
+  --fusion-glow: #a6f2e1;
+}
+#fusionScene[data-grade="2"] { --fusion-glow: #e4c7ff; }
+#fusionScene[data-grade="3"] { --fusion-glow: #ffdf8a; }
+.fusion-track {
+  position: absolute;
+  inset: auto 0 0;
+  height: 31%;
+  background: linear-gradient(#aa7e53,#785a41);
+  border-top: 2px solid #dac08b;
+}
+.fusion-plane {
+  position: absolute;
+  left: calc(50% - 28px);
+  top: calc(50% - 17px);
+  width: 56px;
+  height: 34px;
+  clip-path: polygon(0 0,100% 41%,26% 100%,33% 59%);
+  background: conic-gradient(from -14deg at 34% 58%,#f8e4a7 0 24%,#dbad69 28% 53%,#f7d684 54% 77%,#fff4cc 78%);
+}
+.fusion-plane-left { --fuse-offset: -64px; transform: translateX(var(--fuse-offset)) rotate(-12deg); }
+.fusion-plane-right { --fuse-offset: 64px; transform: translateX(var(--fuse-offset)) rotate(-12deg); }
+.fusion-plane-result {
+  opacity: 0;
+  background: conic-gradient(from -14deg at 34% 58%,var(--fusion-glow) 0 24%,#b8a47a 28% 53%,#f7d684 54% 77%,#fff4cc 78%);
+}
+.fusion-halo {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse,var(--fusion-glow),transparent 63%);
+}
+#fusionDialog[data-phase="fusing"] .fusion-plane:not(.fusion-plane-result) { animation: fuse-converge .89s ease-in both; }
+#fusionDialog[data-phase="fusing"] .fusion-halo { animation: fuse-light .95s ease-in both; }
+#fusionDialog[data-phase="result"] .fusion-plane:not(.fusion-plane-result) { opacity: 0; }
+#fusionDialog[data-phase="result"] .fusion-plane-result { animation: fuse-reveal .49s ease-out both; }
+#fusionDialog[data-phase="result"] .fusion-halo { opacity: .36; }
+@keyframes fuse-converge {
+  0% { transform: translateX(var(--fuse-offset)) rotate(-12deg); opacity: 1; }
+  66% { transform: translate(0,-14px) rotate(24deg) scale(1.05); opacity: 1; }
+  100% { transform: translate(0,-3px) rotate(0) scale(.48); opacity: 0; }
+}
+@keyframes fuse-light { from { opacity: 0; } to { opacity: .78; } }
+@keyframes fuse-reveal {
+  from { opacity: 0; transform: translateY(-10px) scale(.55); }
+  to { opacity: 1; transform: translateY(-4px) rotate(-12deg) scale(1.65); }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  #fusionScene { min-height: 100px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #fusionDialog *, #fusionDialog *::after { animation-duration: .001ms !important; }
+}

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/src/arcade.css">
 <link rel="stylesheet" href="/src/flight-ui.css">
 <link rel="stylesheet" href="/src/loot-ui.css">
+<link rel="stylesheet" href="/src/fusion.css">
 </head>
 <body class="booting">
 <section id="bootScreen" aria-label="게임 로딩">
@@ -158,7 +159,17 @@
     </div>
    </section>
    <section class="tab" data-panel="shop"><div class="cards" id="shopList"></div></section>
-   <section class="tab" data-panel="parts"><div class="parts-summary" id="partsSummary"></div><div class="cards" id="partsList"></div></section><section class="tab" data-panel="office"><div class="cards" id="officeList"></div></section>
+   <section class="tab" data-panel="parts">
+     <div class="fusion-tabs" aria-label="기체 작업대">
+      <button id="partUpgradesTab" type="button" aria-controls="partUpgrades" aria-pressed="true">부품 강화</button>
+      <button id="fusionTab" type="button" aria-controls="planeFusion" aria-pressed="false">기체 합성</button>
+     </div>
+     <div id="partUpgrades"><div class="parts-summary" id="partsSummary"></div><div class="cards" id="partsList"></div></div>
+     <div id="planeFusion" hidden>
+      <div class="fusion-workshop-bar"><small>같은 기종과 등급을 모아 합성하세요.</small><button id="fusionBulk" type="button" disabled>일괄 합성</button></div>
+      <div id="fusionInventory"></div>
+     </div>
+   </section><section class="tab" data-panel="office"><div class="cards" id="officeList"></div></section>
    <section class="tab" data-panel="ai"><div class="cards" id="aiList"></div></section>
    <section class="tab" data-panel="achievements"><div class="cards" id="achievementList"></div></section>
    <section class="tab" data-panel="settings"><div class="cards" id="settingsList"></div></section>
@@ -237,6 +248,19 @@
   </div>
 </div>
 <div class="modal-cover show" id="modalCover"><div class="modal"><div class="modal-mark" id="modalMark">✈️</div><h2 id="modalTitle">날아라 우편국</h2><p id="modalMessage">종이비행기를 날려 배달하고, 우체국을 키워보세요.</p><div class="tip" id="modalTip">지도는 무료 · 손님은 자동 방문</div><button class="big-btn" id="modalPrimary">게임 시작</button><button class="action-alt" id="modalSecondary" hidden>닫기</button></div></div>
+<dialog id="fusionDialog" aria-labelledby="fusionTitle">
+  <h2 id="fusionTitle">기체 합성</h2>
+  <div id="fusionScene" aria-hidden="true">
+   <i class="fusion-track"></i><i class="fusion-plane fusion-plane-left"></i><i class="fusion-plane fusion-plane-right"></i>
+   <i class="fusion-halo"></i><i class="fusion-plane fusion-plane-result"></i>
+  </div>
+  <div id="fusionScore">
+   <ul id="fusionSummary"></ul>
+   <p>합성 기체는 내구도가 가득 차고, 부품별 최고 강화 단계가 이어집니다.</p>
+  </div>
+  <ul id="fusionResults" aria-live="polite" aria-label="합성 결과"></ul>
+  <div class="fusion-actions"><button id="fusionClose" type="button">취소</button><button id="fusionConfirm" type="button">합성하기</button></div>
+</dialog>
 <div class="toast" id="toast"></div>
 <script type="module" src="/src/main.js"></script>
 </body>

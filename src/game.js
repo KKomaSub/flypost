@@ -1,5 +1,7 @@
 import { createFlightEngine } from './flight-engine.js';
 import { createTutorial } from './tutorial.js';
+import { createFusionUI } from './fusion-ui.js';
+import { PLANE_GRADES, epicMilestoneReward, planeGrade, planeGradeName } from './fusion.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const rng=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)],limit=(n,a,b)=>Math.max(a,Math.min(b,n));
 const money=n=>Math.floor(n).toLocaleString('ko-KR')+'원',metre=n=>Math.max(0,n).toFixed(0)+'m',safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -86,7 +88,7 @@ function sfx(type){
   audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended')audioCtx.resume();
   if(!audioBus){audioBus=audioCtx.createGain();audioBus.gain.value=.38;const limiter=audioCtx.createDynamicsCompressor();limiter.threshold.value=-20;limiter.ratio.value=8;audioBus.connect(limiter).connect(audioCtx.destination);}
-  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],parcelSort:[[196,.32],[247,.31],[294,.28],[392,.27],[466,.25],[523,.24]],parcelOpen:[[466,.13],[622,.23]],parcelPress:[[137,.10],[195,.08]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
+  const patterns={launch:[[360,.09],[580,.19]],hit:[[165,.12]],win:[[523,.13],[659,.16],[784,.36]],clear:[[523,.20],[659,.20],[784,.24],[1047,.62]],perfect:[[523,.17],[659,.17],[784,.20],[1047,.35],[1319,.65]],level:[[392,.17],[523,.20],[659,.22],[784,.27],[1047,.65]],rare:[[600,.14],[820,.20],[1100,.48]],quest:[[500,.14],[740,.32]],brake:[[260,.12]],event:[[460,.09]],parcelSort:[[196,.32],[247,.31],[294,.28],[392,.27],[466,.25],[523,.24]],parcelOpen:[[466,.13],[622,.23]],parcelPress:[[137,.10],[195,.08]],fusionStart:[[262,.17],[330,.20],[392,.26]],fusionFinish:[[523,.09],[698,.13],[1047,.32]],tap:[[740,.045]],coin:[[1080,.06],[1440,.13]],stamp:[[210,.06],[420,.15]],correct:[[480,.07]],streak:[[523,.14],[698,.20],[880,.34]],extinguish:[[330,.19],[247,.24],[165,.38]]};
   const start=audioCtx.currentTime;let pos=0;
   for(const [freq,dur] of patterns[type]||patterns.event){
    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type==='hit'?'triangle':'sine';osc.frequency.setValueAtTime(freq,start+pos);
@@ -324,7 +326,7 @@ function advanceDay(){state.day++;state.playsToday=0;state.adFixUsedToday=0;
 
 function checkGameOver(){if(state.gameOver)return true;let reason=debtSum()>=120000?'빚이 120,000원을 넘어 우체국이 압류되었습니다.':overdue()>=16?'16일 이상 빚을 연체해 영업이 중단되었습니다.':'';if(!reason)return false;state.gameOver=true;state.flightState='gameover';state.gameOverReason=reason;clearTimeout(nextTimer);document.body.classList.remove('in-flight');save();openModal({mark:'📪',title:'우체국 영업 종료',message:reason,tip:'기록과 빚은 저장됩니다. 우체국 메뉴에서 상황을 확인할 수 있습니다.',primary:'우체국 확인',secondary:'새 인생',cancel:offerNewLife,action:()=>{showLobby();selectTab('office')}});return true}
 function buyPlane(def){if(state.gameOver)return notify('게임 오버입니다');if(!planeUnlocked(def))return notify('Lv.'+planeUnlockLevel(def)+'에 구매 가능');const price=planePrice(def);pay(price,def.name+' 구매');if(state.gameOver)return;if((state.planeCoupons?.[def.id]||0)>0)state.planeCoupons[def.id]--;state.owned[def.id]=state.owned[def.id]||[];state.owned[def.id].push({dur:def.dur,maxDur:def.dur});state.selectedPlaneKey=def.id+':'+(state.owned[def.id].length-1);state.newPlaneIds=(state.newPlaneIds||[]).filter(x=>x!==def.id);addLog(def.name+' 구매');renderAll();autosave();rewardBurst('✈️',def.name+' 구매 완료',0,'item')}
-function repairPlane(key){if(state.gameOver)return notify('게임 오버입니다');const x=ownedFlat().find(x=>x.key===key);if(!x)return;const missing=x.p.maxDur-x.p.dur;if(!missing)return notify('내구도가 이미 가득 찼습니다');const cost=Math.ceil(x.def.price*.1*missing/x.def.dur+missing*28);pay(cost,'비행기 수리');if(state.gameOver)return;x.p.dur=x.p.maxDur;addLog(x.def.name+' 수리 '+money(cost));renderAll();autosave()}
+function repairPlane(key){if(state.gameOver)return notify('게임 오버입니다');const x=ownedFlat().find(x=>x.key===key);if(!x)return;const missing=x.p.maxDur-x.p.dur;if(!missing)return notify('내구도가 이미 가득 찼습니다');const cost=Math.ceil(x.def.price*.1*missing/x.p.maxDur+missing*28);pay(cost,'비행기 수리');if(state.gameOver)return;x.p.dur=x.p.maxDur;addLog(x.def.name+' 수리 '+money(cost));renderAll();autosave()}
 function buyForecast(){if(state.gameOver)return notify('게임 오버입니다');pay(900,'일기예보권 구매');if(state.gameOver)return;state.forecastTickets++;addLog('일기예보권 구매');renderAll();autosave()}
 function repay(){if(!state.debts.length)return notify('갚을 빚이 없습니다');if(state.money<=0)return notify('보유금이 없습니다');state.debts.sort((a,b)=>a.due-b.due);let sum=0;for(const d of state.debts){const v=Math.min(state.money-sum,d.amount);if(v<=0)break;d.amount-=v;sum+=v}state.money-=sum;ledger(-sum,'대출 원금 상환','repayment');state.debts=state.debts.filter(d=>d.amount>0);addLog('빚 상환 '+money(sum));renderAll();autosave();notify(money(sum)+' 상환 완료')}
 function offerNewLife(){
@@ -356,7 +358,7 @@ function offerNewLife(){
 }
 function attemptReset(){if(debtSum()>0)return openModal({mark:'🔒',title:'초기화할 수 없습니다',message:'빚을 전부 상환해야 초기화할 수 있습니다. 앱을 삭제하는 것은 게임 진행 기록을 보장하지 않습니다.',tip:'단일 HTML에서는 앱 삭제 후에도 경고를 보장하는 영구 저장 기능을 제공할 수 없습니다.',primary:'확인'});if(state.money<5000000)return notify('초기화에는 현금 5,000,000원이 필요합니다');openModal({mark:'🧾',title:'초기화 확인',message:'5,000,000원을 지불하고 우체국 기록을 새로 시작하시겠습니까? 대출은 불가능합니다.',tip:'초기화하면 기존 돈, 비행기, 기록이 모두 사라집니다.',primary:'초기화 실행',action:()=>{try{localStorage.setItem(SAVE,JSON.stringify(newState()));state=newState();clearTimeout(nextTimer);flight=null;saveDelay=0;location.reload()}catch(e){notify('초기화 저장 실패')}},secondary:'취소'})}
 function renderStatus(){let a=aStars();$('#money').textContent=money(state.money);$('#average').textContent=a.toFixed(2)+'★';$('#reputation').textContent=repLabel();$('#day').textContent=state.month+'월 '+(1+(state.day-1)%30)+'일';$('#debt').textContent=money(debtSum());$('#debt').classList.toggle('bad',debtSum()>0);$('#streak').textContent=comboCount()?comboCount()+'회 Lv.'+comboLevel():'-';$('#streak').classList.toggle('good',comboCount()>0);$('#angleValue').textContent=$('#angle').value+'°';$('#powerValue').textContent=$('#power').value+'%';$('#launchBtn').disabled=state.flightState!=='ready'||state.gameOver;$('#briefBtn').classList.toggle('riskOn',state.riskMode);$('#briefBtn').textContent=state.riskMode?'⚡ 도전 ON':'⚡ 특급 ±';refreshChest()}
-function renderPlaneSelect(){const select=$('#planeSelect'),arr=ownedFlat();const selected=selectedPlane();select.replaceChildren();for(const x of arr){const opt=document.createElement('option');opt.value=x.key;opt.disabled=x.p.dur<=0;opt.textContent=x.def.name+' · '+x.p.dur+'/'+x.p.maxDur;select.add(opt)}if(selected){select.value=selected.key;const pct=limit(selected.p.dur/selected.p.maxDur*100,0,100);$('#durCount').textContent=selected.p.dur+'/'+selected.p.maxDur;$('#durFill').style.width=pct+'%';$('#durMeter').classList.toggle('low',pct<=30);$('#planeLevel').textContent=selected.def.price>=250000?'최고급':selected.def.price>=25000?'고급':selected.def.price>=1500?'중급':'초급'}}
+function renderPlaneSelect(){const select=$('#planeSelect'),arr=ownedFlat();const selected=selectedPlane();select.replaceChildren();for(const x of arr){const opt=document.createElement('option');opt.value=x.key;opt.disabled=x.p.dur<=0;opt.textContent=x.def.name+' · '+planeGradeName(x.p)+' · '+x.p.dur+'/'+x.p.maxDur;select.add(opt)}if(selected){select.value=selected.key;const pct=limit(selected.p.dur/selected.p.maxDur*100,0,100);$('#durCount').textContent=selected.p.dur+'/'+selected.p.maxDur;$('#durFill').style.width=pct+'%';$('#durMeter').classList.toggle('low',pct<=30);$('#planeLevel').textContent=planeGradeName(selected.p)}}
 function renderShop(){const g=$('#shopList');g.replaceChildren();let first=document.createElement('div');first.className='item';first.innerHTML='<div><strong>🗺️ 무료 전체 항로 지도</strong><p>언제든 다시 열 수 있습니다 · 시작/끝 기류 구간 확인</p><span class="price">무료 · 횟수 무제한</span></div>';let btn=document.createElement('button');btn.className='action';btn.textContent='지도 보기';btn.onclick=mapOpen;first.append(btn);g.append(first);
 const chestCard=document.createElement('div');chestCard.className='item lucky-chest-card';chestCard.innerHTML=`<div><strong>🎁 행운 상자</strong><p>상자 보상 · 손실 16% · 희귀 23.52% · 전설 3.36%</p><span class="price">보유 ${state.crates}개 · 방어막 ${state.boosts.shield} · 순풍 ${state.boosts.tailwind}</span></div>`;const chestOpen=document.createElement('button');chestOpen.className='action buy';chestOpen.textContent='뽑기';chestOpen.disabled=state.crates<1;chestOpen.onclick=openChestUI;chestCard.append(chestOpen);g.append(chestCard);
 for(const def of planeDefs){
@@ -367,7 +369,7 @@ for(const def of planeDefs){
  if(isNew){const badge=card.querySelector('.plane-new-inline');badge.setAttribute('role','button');badge.setAttribute('tabindex','0');badge.title='새 비행기 알림 확인';badge.onclick=()=>markPlaneSeen(def.id);badge.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();markPlaneSeen(def.id)}};}
  g.append(card);
 }
-let repairs=ownedFlat().filter(x=>x.p.dur<x.p.maxDur);for(const x of repairs){let missing=x.p.maxDur-x.p.dur,price=Math.ceil(x.def.price*.1*missing/x.def.dur+missing*28);let card=document.createElement('div');card.className='item';card.innerHTML=`<div><strong>🔧 ${safe(x.def.name)} 수리</strong><p>내구도 ${x.p.dur}/${x.p.maxDur}</p><span class="price">${money(price)}</span></div>`;let b=document.createElement('button');b.className='action';b.textContent='수리';b.onclick=()=>repairPlane(x.key);card.append(b);g.append(card)}}
+let repairs=ownedFlat().filter(x=>x.p.dur<x.p.maxDur);for(const x of repairs){let missing=x.p.maxDur-x.p.dur,price=Math.ceil(x.def.price*.1*missing/x.p.maxDur+missing*28);let card=document.createElement('div');card.className='item';card.innerHTML=`<div><strong>🔧 ${safe(x.def.name)} 수리 · ${planeGradeName(x.p)}</strong><p>내구도 ${x.p.dur}/${x.p.maxDur}</p><span class="price">${money(price)}</span></div>`;let b=document.createElement('button');b.className='action';b.textContent='수리';b.onclick=()=>repairPlane(x.key);card.append(b);g.append(card)}}
 function renderOffice(){
  const g=$('#officeList');g.replaceChildren();
  const make=(title,description,value,actionName,fn,cls='action')=>{
@@ -544,10 +546,10 @@ function ensureEpic(){
  if(!state.epicUnlockMigration){const oldLevels={basic:1,light:2,stable:3,biplane:5,balance:7,waterproof:10,carbon:14,gold:19,star:25,royal:33};state.newPlaneIds=Array.isArray(state.newPlaneIds)?state.newPlaneIds:[];for(const d of planeDefs)if(rankLevel()>=planeUnlockLevel(d)&&rankLevel()<oldLevels[d.id]&&!state.newPlaneIds.includes(d.id))state.newPlaneIds.push(d.id);state.epicUnlockMigration=true;}
  state.epicCrates=Math.max(0,Math.floor(Number(state.epicCrates)||0));
  state.epicPending=Math.max(0,Math.floor(Number(state.epicPending)||0));
- const earned=Math.floor((rankLevel()-1)/5);
- const old=Number.isFinite(state.epicMilestones)?Math.max(0,Math.floor(state.epicMilestones)):0;
- if(earned>old){const count=earned-old;state.epicCrates+=count;state.epicPending+=count;state.epicMilestones=earned;}
- else state.epicMilestones=old;
+ const { total, added }=epicMilestoneReward(rankLevel(),state.epicMilestones);
+ state.epicCrates+=added;
+ state.epicPending+=added;
+ state.epicMilestones=total;
 }
 function rollEpicLoot(){
  if(Math.random()>=0.30)return rollLoot(5,true);
@@ -783,8 +785,14 @@ const partCatalog=[
 ];
 const partLevel=(plane,id)=>Math.max(0,Math.min(8,Math.floor(plane?.p?.parts?.[id]||0)));
 function effectivePlaneStats(plane){
- const d=plane?.def||planeDefs[0],scale=(id)=>partLevel(plane,id);
- return {...d,speed:d.speed*(1+.04*scale('engine')),glide:d.glide*(1+.06*scale('wing')),stable:d.stable*(1+.06*scale('stabilizer'))};
+ const d=plane?.def||planeDefs[0],scale=(id)=>partLevel(plane,id),grade=planeGrade(plane?.p);
+ return {...d,
+  speed:d.speed*(1+.03*grade)*(1+.04*scale('engine')),
+  glide:d.glide*(1+.08*grade)*(1+.06*scale('wing')),
+  stable:d.stable*(1+.05*grade)*(1+.06*scale('stabilizer')),
+  lift:d.lift*(1+.02*grade)
+ };
+
 }
 function partCost(plane,id){const c=partCatalog.find(x=>x.id===id);return Math.ceil((c.base+Math.max(0,plane?.def?.price||0)*.025)*Math.pow(1.55,partLevel(plane,id)) /10)*10}
 function upgradePart(id){
@@ -796,11 +804,23 @@ function upgradePart(id){
 function renderParts(){
  const g=$('#partsList'),h=$('#partsSummary');if(!g||!h)return;g.replaceChildren();const p=selectedPlane();if(!p){h.textContent='비행기를 선택해 주세요';return;}
  const es=effectivePlaneStats(p);
- h.innerHTML=`<div><strong>✈ ${safe(p.def.name)}</strong><small>속도 ${Math.round(es.speed*100)} · 활공 ${Math.round(es.glide*100)} · 안정 ${Math.round(es.stable*100)}</small></div><span class="part-level">${Object.values(p.p.parts||{}).reduce((a,b)=>a+b,0)} 강화</span>`;
+ h.innerHTML=`<div><strong>✈ ${safe(p.def.name)} · ${planeGradeName(p.p)}</strong><small>속도 ${Math.round(es.speed*100)} · 활공 ${Math.round(es.glide*100)} · 안정 ${Math.round(es.stable*100)}</small></div><span class="part-level">${Object.values(p.p.parts||{}).reduce((a,b)=>a+b,0)} 강화</span>`;
  for(const c of partCatalog){const lv=partLevel(p,c.id),el=document.createElement('div');el.className='item parts-card';el.innerHTML=`<div class="part-icon">${c.icon}</div><div class="part-meta"><strong>${c.name} <span class="part-level">Lv.${lv}/8</span></strong><p>${c.desc}</p><div class="part-progress"><span style="width:${lv/8*100}%"></span></div><div class="part-price">${lv===8?'최대 강화':money(partCost(p,c.id))}</div></div>`;const b=document.createElement('button');b.className='action buy';b.disabled=lv>=8;b.textContent=lv===8?'완료':lv===0?'장착':'강화';b.onclick=()=>upgradePart(c.id);el.appendChild(b);g.appendChild(el)}
 }
+const fusion=createFusionUI({
+ getState:()=>state,
+ defs:planeDefs,
+ playSound:sfx,
+ commit(plan){
+  state.owned=plan.nextOwned;
+  state.selectedPlaneKey=plan.selectedPlaneKey;
+  addLog('기체 합성 · '+plan.rewards.map(item=>item.name+' '+PLANE_GRADES[item.grade].name+' '+item.count+'대').join(' / '));
+  save();
+  renderAll();
+ }
+});
 const priorRenderAllForParts=renderAll;
-renderAll=function(){priorRenderAllForParts();renderParts()};
+renderAll=function(){priorRenderAllForParts();renderParts();fusion.render()};
 // A delivery consists of three separate flights. No combat or enemy damage.
 // Select a different route, weather and package on each flight. The second flight
 // changes mission category from the first, while the third is a varied finale.
@@ -903,7 +923,7 @@ function syncReadyFlightControls(){
  const p=selectedPlane();
  $('#readyPlaneName').textContent=p?.def.name||'비행기 없음';
  const eff=p?effectivePlaneStats(p):null;
- $('#readyPlaneStats').textContent=p?`내구 ${p.p.dur}/${p.p.maxDur} · 속도 ${Math.round(eff.speed*100)}`:'비행기 구매 필요';
+ $('#readyPlaneStats').textContent=p?`${planeGradeName(p.p)} · 내구 ${p.p.dur}/${p.p.maxDur} · 속도 ${Math.round(eff.speed*100)}`:'비행기 구매 필요';
  $('#readyAngle').value=$('#angle').value;
  $('#readyPower').value=$('#power').value;
  $('#readyAngleValue').textContent=$('#angle').value+'°';
@@ -1299,7 +1319,7 @@ function validateBackup(root){
  const d=root.data;
  // Refuse malformed or unrelated files before replacing the existing save.
  if(!['money','round','day','month'].every(k=>nonneg(d[k]))||d.day<1||d.month<1||!obj(d.owned)||!Array.isArray(d.debts)||!Array.isArray(d.stars)||!Array.isArray(d.monthStars)||!obj(d.ai))throw Error('필수 저장 데이터 누락');
- for(const def of planeDefs){const list=d.owned[def.id];if(list!==undefined&&(!Array.isArray(list)||list.some(p=>!obj(p)||!nonneg(p.dur)||!number(p.maxDur)||p.maxDur<=0||p.dur>p.maxDur||(p.parts!==undefined&&(!obj(p.parts)||Object.values(p.parts).some(v=>!nonneg(v)||v>8))))))throw Error('비행기 데이터 오류');}
+ for(const def of planeDefs){const list=d.owned[def.id];if(list!==undefined&&(!Array.isArray(list)||list.some(p=>!obj(p)||!nonneg(p.dur)||!number(p.maxDur)||p.maxDur<=0||p.dur>p.maxDur||(p.grade!==undefined&&p.grade!==planeGrade(p))||(p.parts!==undefined&&(!obj(p.parts)||Object.values(p.parts).some(v=>!nonneg(v)||v>8))))))throw Error('비행기 데이터 오류');}
  if(!Array.isArray(d.owned.basic))throw Error('기본 비행기 누락');
  if(d.debts.some(x=>!obj(x)||!nonneg(x.amount)||!number(x.due)))throw Error('대출 데이터 오류');
  if([...d.stars,...d.monthStars].some(x=>!number(x)||x<0||x>5))throw Error('평점 데이터 오류');
