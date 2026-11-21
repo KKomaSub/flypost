@@ -1,11 +1,13 @@
 import { createFlightEngine } from './flight-engine.js';
 import { createTutorial } from './tutorial.js';
 import { createFusionUI } from './fusion-ui.js';
+import { CHALLENGE_TIERS, RANDOM_WARMUP, challengeTier, legacyStageTier, randomDifficulty, routeRequirements,
+ distanceRules, nextRouteType, challengeCleared, challengePremium } from './delivery-rules.js';
 import { PLANE_GRADES, epicMilestoneReward, planeGrade, planeGradeName } from './fusion.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const rng=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)],limit=(n,a,b)=>Math.max(a,Math.min(b,n));
 const money=n=>Math.floor(n).toLocaleString('ko-KR')+'원',metre=n=>Math.max(0,n).toFixed(0)+'m',safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SAVE='fly_post_office_save_v4_map_streak',GAME_VERSION=11;
+const SAVE='fly_post_office_save_v4_map_streak',GAME_VERSION=12;
 const planeDefs=[
 {id:'basic',name:'연습용 종이비행기',price:100,dur:5,speed:1,glide:1,stable:1,lift:1,color:'#fffdf3',accent:'#eacb9b',desc:'가장 기본적인 비행기'},
 {id:'light',name:'가벼운 편지비행기',price:250,dur:6,speed:1.08,glide:1.12,stable:.82,lift:1.13,color:'#fefbf5',accent:'#73c3da',desc:'장거리 유리 · 바람에 약함'},
@@ -48,7 +50,7 @@ const regions=[{name:'햇살 마을',sky:['#a8e4fa','#e3f7f2'],hill:'#a3dba6',gr
 {name:'노을 골목',sky:['#ffcfaf','#fff3d7'],hill:'#ddc09d',ground:'#b3cd8b'},
 {name:'꽃길 언덕',sky:['#c6d9fa','#f8eaf9'],hill:'#c6d7a7',ground:'#8cc7a7'},
 {name:'높은 산길',sky:['#b8d6ec','#eef5f9'],hill:'#a6c1d1',ground:'#79b69d'}];
-const newState=()=>({reputationBonus:0,reputationBuys:0,delivery:null,gameMode:'random',stageSelected:1,stageUnlocked:1,stageStars:{},stageWins:0,version:GAME_VERSION,money:1200,day:1,month:1,round:0,playsToday:0,forcedCustomers:0,forecastTickets:1,adFixUsedToday:0,goodRaw:0,crates:1,cratePity:0,boosts:{shield:0,tailwind:0},daily:null,riskMode:false,insuranceOn:false,sound:true,finance:{earned:0,spent:0,borrowed:0,winEvents:0,lossEvents:0,last:null,ledger:[]},stars:[],monthStars:[],records:[],logs:[],owned:{basic:[{dur:5,maxDur:5}]},selectedPlaneKey:'basic:0',debts:[],current:null,flightState:'ready',lastResult:null,gameOver:false,gameOverReason:'',ai:{enabled:false,player:0,bot:0,draw:0,history:[]}});
+const newState=()=>({reputationBonus:0,reputationBuys:0,delivery:null,gameMode:'random',challengeWins:0,version:GAME_VERSION,money:1200,day:1,month:1,round:0,playsToday:0,forcedCustomers:0,forecastTickets:1,adFixUsedToday:0,goodRaw:0,crates:1,cratePity:0,boosts:{shield:0,tailwind:0},daily:null,riskMode:false,insuranceOn:false,sound:true,finance:{earned:0,spent:0,borrowed:0,winEvents:0,lossEvents:0,last:null,ledger:[]},stars:[],monthStars:[],records:[],logs:[],owned:{basic:[{dur:5,maxDur:5}]},selectedPlaneKey:'basic:0',debts:[],current:null,flightState:'ready',lastResult:null,gameOver:false,gameOverReason:'',ai:{enabled:false,player:0,bot:0,draw:0,history:[]}});
 let state=newState(),started=false,flight=null,cameraX=0,nextTimer=null,saveDelay=0;
 const practicePlane = {def:planeDefs[0],p:{dur:planeDefs[0].dur,maxDur:planeDefs[0].dur}};
 let training=false, practiceAim=null;
@@ -60,11 +62,8 @@ const debtSum=()=>state.debts.reduce((sum,d)=>sum+d.amount,0);
 const overdue=()=>Math.max(0,...state.debts.map(d=>state.day-d.due));
 function repLabel(){const n=aStars();return n>=4.5?'매우 좋음':n>=4?'좋음':n>=3?'보통':n>=2.5?'저조':n>=2?'나쁨':'위험'}
 function level(){return Math.min(13,Math.floor(4.2*Math.log2(1+state.round/24)))}
-function accRules(){const t=limit((state.gameMode==='stage'?state.stageSelected:state.round)/160,0,1),blend=(x,y)=>x+(y-x)*t;return {five:blend(12,3.5),four:blend(30,8),three:blend(60,17),two:blend(105,34)}}
-function distanceGoal(){const n=state.gameMode==='stage'?Math.max(0,state.stageSelected-1):Math.max(0,state.round);return Math.round((500+Math.min(1550,n*19+45*Math.sqrt(n)))/10)*10}
-function distanceRules(g){return {two:g*.46,three:g,four:g*1.23,five:g*1.55}}
-function getAccStar(error,r=accRules()){return error<=r.five?5:error<=r.four?4:error<=r.three?3:error<=r.two?2:1}
-function getDistStar(distance,g){const r=distanceRules(g);return distance>=r.five?5:distance>=r.four?4:distance>=r.three?3:distance>=r.two?2:1}
+function getAccStar(error,r){return error<=r.five?5:error<=r.four?4:error<=r.three?3:error<=r.two?2:1}
+function getDistStar(distance,r){return distance>=r.five?5:distance>=r.four?4:distance>=r.three?3:distance>=r.two?2:1}
 const stars=n=>'★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n);
 const comboCount=()=>Math.max(0,state.goodRaw-1),comboLevel=()=>comboCount()>0?Math.min(10,Math.ceil(comboCount()/2)):0;
 // Daily quests rotate across four modes; reward is claimed manually in the office.
@@ -176,7 +175,8 @@ function pay(cost,reason){cost=Math.max(0,Math.ceil(cost));if(!cost)return true;
 function insurancePrice(){return Math.ceil((125+level()*24)/10)*10}
 function rollSettlement(c,f,star){
  // Transparent, weighted events. Collisions and fragile cargo increase loss risk.
- const lossChance=limit(.35+(f.collisions||0)*.065+(c.pack.fragile?.045:0)+(c.pack.strict?.025:0),.35,.65);
+ const minimum=c.mode==='random'?.15+.20*Math.min(1,c.difficulty*2):.35;
+ const lossChance=limit(minimum+(f.collisions||0)*.065+(c.pack.fragile?.045:0)+(c.pack.strict?.025:0),minimum,.65);
  const p=Math.random(),lv=level();let event;
  if(p<lossChance){
   const k=Math.random();
@@ -193,17 +193,33 @@ function flashLoss(){const v=$('#damagePulse');if(!v)return;v.classList.remove('
 function promoCost(){const a=aStars();let base=a>=4.5?80:a>=4?180:a>=3.5?450:a>=3?950:a>=2.5?2400:a>=2?6500:14000;return Math.floor(base*(1+level()*.13))}
 function visitorChance(){if(state.forcedCustomers>0)return 1;let a=aStars();return a>=4.5?.96:a>=4?.88:a>=3?.68:a>=2.5?.45:a>=2?.28:.12}
 function ensureVisitor(){if(state.round===0)return;if(state.forcedCustomers>0){state.forcedCustomers--;return}if(Math.random()<=visitorChance())return;const cost=promoCost();pay(cost,'자동 전단지 홍보');state.forcedCustomers=2;addLog('손님 부족 · 홍보 '+money(cost)+' / 총 3명 보장');notify('손님이 없어 전단지 홍보를 했습니다')}
-function zoneList(maxX,weather){let list=[],up=weather.id==='thermal'?5:3,down=weather.id==='storm'?5:3;for(let i=0;i<up;i++)list.push({kind:'up',x:rng(70,maxX),w:rng(70,145),strength:rng(13,28)});for(let i=0;i<down;i++)list.push({kind:'down',x:rng(110,maxX),w:rng(60,120),strength:rng(12,25)});return list.sort((a,b)=>a.x-b.x)}
-function obstacles(maxX){const kinds=['tree','pole','cat','line','bird','kite','balloon','window','carwind','alleywind'];let out=[];for(let i=0;i<8;i++)out.push({kind:pick(kinds),x:rng(55,maxX),alt:rng(22,74),height:rng(20,47),width:rng(7,17),used:false});return out.sort((a,b)=>a.x-b.x)}
-function chooseType(){let n=Math.random();return n<.53?'accuracy':'distance'}
+function zoneList(end,weather,difficulty){
+ const zones=[];
+ for(const kind of ['up','down']){
+  const extra=(kind==='up'&&weather.id==='thermal')||(kind==='down'&&weather.id==='storm');
+  const count=Math.round((kind==='up'?1:0)+difficulty*4)+(extra?1:0);
+  for(let i=0;i<count;i++){
+   const start=kind==='up'?100:120, span=(end-start)/count;
+   zones.push({kind,x:start+(i+rng(.1,.62))*span,w:rng(57,120)+difficulty*18,
+    strength:rng(8,15)+difficulty*(kind==='up'?16:22)});
+  }
+ }
+ return zones.sort((a,b)=>a.x-b.x);
+}
+function obstacles(end,count,difficulty){
+ const kinds=['tree','pole','cat','line','bird','kite','balloon','window','carwind','alleywind'];
+ const start=85,span=(end-start)/Math.max(1,count);
+ return Array.from({length:count},(_,i)=>({
+  kind:pick(kinds),x:start+(i+rng(.18,.82))*span,alt:rng(20,77),height:rng(17,35+difficulty*18),
+  width:rng(6,11+difficulty*8),used:false
+ }));
+}
 // Maximum extra weight is 1.2 percentage points (1.012 times standard weight).
 function cargoWeight(pack,scenario){
  const heavy=pack.id==='heavy'||pack.id==='museum'||scenario?.id==='rush';
  const chance=heavy ? .14 : .07;
  return Math.random()<chance?Math.min(1.012,rng(1.001,1.012)):rng(.92,1);
 }
-function spawnCustomer(){if(state.gameOver||!started)return;clearTimeout(nextTimer);nextTimer=null;document.body.classList.remove('in-flight');$('#result').classList.remove('show');$('#stage').classList.remove('stage-result');ensureVisitor();if(state.gameOver)return;const type=chooseType(),weather=pick(weatherDefs),pack=pick(packages),roundDifficulty=level(),target=type==='accuracy'?Math.round(rng(68+roundDifficulty*9,185+roundDifficulty*20)):null,goal=type==='distance'?Math.round(distanceGoal()*rng(.92,1.12)/10)*10:null;const end=Math.max(1500,Math.max(target||0,goal||0)*1.9);let current={type,weather,pack,weight:cargoWeight(pack),wind:rng(-5.3,5.3)*weather.wind,target,goal,region:regions[Math.floor((state.round/5)%regions.length)],zones:zoneList(end,weather),obstacles:obstacles(end),mapSeen:false,mapUsed:false,luckyRing:{x:rng(95,Math.max(125,Math.min(end*.45,(target||goal||220)*.85))),y:rng(19,85),taken:false},customerName:pick(['민들레','푸른 지붕의 손님','꼬마 우체부','우산 가게 주인','호숫가 여행자','바람 연구원','꽃집 주인','골목길 이웃','별 구경 손님','초대장 보내는 친구'])};
-state.current=current;$('#mission').open=false;state.flightState='ready';flight=null;cameraX=0;cameraAim=0;manualCamera=false;sceneDrag=null;updateMission();renderAll();autosave()}
 function updateMission(){
  const c=state.current;
  if(!c)return;
@@ -213,7 +229,7 @@ function updateMission(){
  $('#routeIcon').textContent=exact?'◎':'⚑';
  $('#routeIcon').classList.toggle('distance',!exact);
  $('#missionDesc').textContent=`${c.pack.name} · 무게 ${(c.weight*100).toFixed(1)}%`;
- const r=exact?accRules():distanceRules(c.goal);
+ const r=c.starRules;
  $('#missionCriteria').textContent=exact
   ? `오차 ${r.five.toFixed(1)}m 이내 5★ · ${r.four.toFixed(1)}m 이내 4★ · ${r.three.toFixed(1)}m 이내 3★ · ${r.two.toFixed(1)}m 이내 2★`
   : `${metre(r.five)} 이상 5★ · ${metre(r.four)} 이상 4★ · ${metre(r.three)} 이상 3★ · ${metre(r.two)} 이상 2★`;
@@ -318,7 +334,7 @@ function updateFlight(dt){
  const f=flight,c=state.current,p=effectivePlaneStats(selectedPlane());
  f.t+=dt;applyFlightForces(f,dt,c,p);
 for(const z of c.zones){if(f.x>=z.x&&f.x<=z.x+z.w&&f.y<140){f.vy+=(z.kind==='up'?1:-1)*z.strength*(z.kind==='up'?(p.upBoost||1):1)*dt*1.7;if(z.kind==='up'){f.vx+=1.2*dt;f.touchedUp=true}}}
-if(!training&&!f.eventRolled&&f.t>1.9){f.eventRolled=true;if(Math.random()<.52){const event=Math.random();if(event<.29){f.vx*=1.10;banner('💨 찬스! 갑작스런 순풍');}else if(event<.53){f.vy+=9;banner('🌀 상승 바람이 비행기를 띄웁니다');}else if(event<.78){f.vy-=13;banner('🌪️ 강한 하강 돌풍! 긴급 보정이 필요합니다');}else{f.extraCoins+=150+level()*30;banner('✉️ 공중 보너스 획득!');sparkles('✨',8)}sfx('event')}}
+if(!training&&!f.eventRolled&&f.t>1.9){f.eventRolled=true;if(Math.random()<c.eventChance){const event=Math.random();if(event<.29){f.vx*=1.10;banner('💨 찬스! 갑작스런 순풍');}else if(event<.53){f.vy+=9;banner('🌀 상승 바람이 비행기를 띄웁니다');}else if(event<.78){f.vy-=13;banner('🌪️ 강한 하강 돌풍! 긴급 보정이 필요합니다');}else{f.extraCoins+=150+level()*30;banner('✉️ 공중 보너스 획득!');sparkles('✨',8)}sfx('event')}}
  f.x+=f.vx*dt;f.y+=f.vy*dt;
  if(c.luckyRing&&!c.luckyRing.taken&&Math.abs(f.x-c.luckyRing.x)<17&&Math.abs(f.y-c.luckyRing.y)<19){c.luckyRing.taken=true;f.luckyCollected=true;f.extraCoins+=260+level()*35;banner('🍀 행운의 봉투! 추가 코인 획득');sparkles('mix',15);sfx('rare')}
 f.angle=limit(Math.atan2(-f.vy,Math.max(2,f.vx))*.42,-.7,.7);f.trail.push([f.x,f.y]);if(f.trail.length>150)f.trail.shift();handleObstacles(dt);
@@ -334,10 +350,11 @@ if(f.y<=0||f.x<-25||f.x>10000||f.t>32){
 }}
 function calculateReward(star,dist,c,p,oldAvg,rawBefore){let base=Math.floor((135+level()*15+(c.type==='distance'?55:25))*c.pack.pay*(1+star*.20)*(1+oldAvg*.12)*(1+(p.def.bonus||0))),extra=0;
 if(c.type==='distance'&&dist>c.goal){const above=dist-c.goal;extra=Math.floor(above*1.05+base*Math.min(3.2,above/c.goal*2.05))}
-const streakLength=star>=4?rawBefore+1:0,streakDisplayed=Math.max(0,streakLength-1),bonusLv=streakDisplayed>0?Math.min(10,Math.ceil(streakDisplayed/2)):0,combo=bonusLv?Math.floor((base+extra)*(.06*bonusLv)+streakDisplayed*25):0;
-return{base,extra,combo,total:base+extra+combo,bonusLv,streakLength,streakDisplayed}}
+const streakLength=c.mode==='random'&&star>=4?rawBefore+1:0,streakDisplayed=Math.max(0,streakLength-1),bonusLv=streakDisplayed>0?Math.min(10,Math.ceil(streakDisplayed/2)):0,combo=bonusLv?Math.floor((base+extra)*(.06*bonusLv)+streakDisplayed*25):0;
+const difficultyBonus=c.mode==='challenge'?challengePremium(star,base+extra,challengeTier(c.challengeTier)):0;
+return{base,extra,combo,difficultyBonus,total:base+extra+combo+difficultyBonus,bonusLv,streakLength,streakDisplayed}}
 function completeFlight(){if(state.flightState!=='flying'||!flight)return;document.body.classList.remove('in-flight');state.flightState='result';const c=state.current,p=selectedPlane(),dist=Math.max(0,flight.x);let error=null,star;
-if(c.type==='accuracy'){error=Math.abs(dist-c.target);star=getAccStar(error)}else star=getDistStar(dist,c.goal);
+if(c.type==='accuracy'){error=Math.abs(dist-c.target);star=getAccStar(error,c.starRules)}else star=getDistStar(dist,c.starRules);
 if(c.pack.fragile&&flight.collisions)star--;if(c.pack.strict&&star>1&&Math.random()<.35)star--;star=limit(star,1,5);
 const rawBefore=state.goodRaw,oldAvg=aStars(),reward=calculateReward(star,dist,c,p,oldAvg,rawBefore);
 reward.lucky=flight.extraCoins||0;
@@ -351,7 +368,8 @@ reward.insuranceCovered=flight.insured?Math.round(reward.eventCost*.70):0;
 reward.paidCost=Math.max(0,reward.eventCost-reward.insuranceCovered)+reward.riskFail;
 const gross=reward.total+reward.lucky+reward.risk+reward.eventBonus;
 reward.total=gross-reward.paidCost;
-state.goodRaw=reward.streakLength;
+if(c.mode==='random'){state.goodRaw=reward.streakLength;state.randomFlights++}
+state.routePairs[c.mode].shift();
 credit(gross,'배달 '+state.round+'회 정산 수입');
 if(reward.paidCost)pay(reward.paidCost,(reward.riskFail?'특급 실패 · ':'')+settlement.title);
 if(settlement.amount<0){state.finance.lossEvents++;flashLoss();banner(settlement.icon+' '+settlement.title+(reward.insuranceCovered?' · 보험 적용':''));sfx('hit');}
@@ -363,11 +381,11 @@ state.stars.push(star);state.monthStars.push(star);state.stars=state.stars.slice
 progressQuest(star,flight,c);const gotChest=maybeChest(star,flight);if(star>=4){sparkles(star===5?'mix':'⭐',star===5?27:16);sfx(star===5?'rare':'win')}else{sfx('brake')}
 let trophy=false;if(reward.streakDisplayed>0&&reward.streakDisplayed%5===0){state.forecastTickets++;trophy=true;notify('연속 성공 보너스 · 일기예보권 +1')}
 let aiResult=null;if(state.ai.enabled)aiResult=simulateAI(c,star);
-state.lastResult={dist,error,star,c,wear,rawBefore,reward,aiResult,bonusTicket:trophy,gotChest,planeDef:p.def,oldAvg,settlement};state.records.unshift({round:state.round,type:c.type,star,dist,goal:c.goal,target:c.target,pay:reward.total,streak:reward.streakDisplayed});state.records=state.records.slice(0,80);
+state.lastResult={dist,error,star,c,wear,rawBefore,reward,aiResult,bonusTicket:trophy,gotChest,planeDef:p.def,oldAvg,settlement};state.records.unshift({round:state.round,mode:c.mode,type:c.type,star,dist,goal:c.goal,target:c.target,pay:reward.total,streak:reward.streakDisplayed});state.records=state.records.slice(0,80);
 addLog(`${state.round}번째 배달 · ${star}★ · ${metre(dist)} · 순손익 ${money(reward.total)} · ${settlement.title} ${settlement.amount<0?'-':''}${money(Math.abs(settlement.amount))}`);
 if(state.playsToday>=5)advanceDay();
 ensurePlane();checkGameOver();renderAll();showResult();autosave();if(!state.gameOver)scheduleNext()}
-function simulateAI(c,playerStar){const skill=limit(.72+state.round*.0025,.72,1.2);let botDist,botStar;if(c.type==='accuracy'){let e=rng(0,accRules().two*1.35)/skill;botDist=c.target+(Math.random()<.5?-e:e);botStar=getAccStar(e)}else{botDist=c.goal*rng(.55,1.75)*skill;botStar=getDistStar(botDist,c.goal)}let label=playerStar>botStar?'승리':playerStar===botStar?'무승부':'패배';if(label==='승리'){state.ai.player++;credit(150,'AI 대결 승리')}else if(label==='패배'){state.ai.bot++}else state.ai.draw++;
+function simulateAI(c,playerStar){const skill=limit(.72+state.round*.0025,.72,1.2);let botDist,botStar;if(c.type==='accuracy'){let e=rng(0,c.starRules.two*1.35)/skill;botDist=c.target+(Math.random()<.5?-e:e);botStar=getAccStar(e,c.starRules)}else{botDist=c.goal*rng(.55,1.75)*skill;botStar=getDistStar(botDist,c.starRules)}let label=playerStar>botStar?'승리':playerStar===botStar?'무승부':'패배';if(label==='승리'){state.ai.player++;credit(150,'AI 대결 승리')}else if(label==='패배'){state.ai.bot++}else state.ai.draw++;
 state.ai.history.unshift({playerStar,botStar,label,botDist,type:c.type,round:state.round});state.ai.history=state.ai.history.slice(0,15);return{label,botStar,botDist}}
 function showResult(){const r=state.lastResult;if(!r)return;
  $('#resultTitle').textContent=r.reward.total<0?'📉 손실이 발생했습니다':r.star>=4?'훌륭한 배달!':r.star>=3?'성공적인 배달':'조금 아쉬운 배달';
@@ -375,7 +393,8 @@ function showResult(){const r=state.lastResult;if(!r)return;
  $('#resultDesc').textContent=r.c.type==='accuracy'?`목표 ${r.c.target}m · 오차 ${metre(r.error)}`:`희망 ${r.c.goal}m · 실제 ${metre(r.dist)}`;
  $('#resultDistance').textContent=metre(r.dist);$('#resultTarget').textContent=r.c.type==='accuracy'?metre(r.error)+' 오차':metre(r.c.goal);
  $('#resultBase').textContent=money(r.reward.base);$('#resultExcess').textContent=money(r.reward.extra);
- $('#resultCombo').textContent=money(r.reward.combo);
+ $('#resultBonusLabel').textContent=r.c.mode==='challenge'?'난이도 추가 보수':'연속 보너스';
+ $('#resultCombo').textContent=money(r.c.mode==='challenge'?r.reward.difficultyBonus:r.reward.combo);
  $('#resultTotal').textContent=money(r.reward.total)+' / -'+r.wear;
  $('#resultTotal').classList.toggle('loss-text',r.reward.total<0);
  const s=r.settlement||r.reward.event||{icon:'🧾',title:'정상 정산',amount:0,detail:''};
@@ -386,7 +405,7 @@ function showResult(){const r=state.lastResult;if(!r)return;
  $('#starAdBtn').disabled=r.star>=5||state.adFixUsedToday>=3||state.gameOver;$('#result').classList.add('show');$('#stage').classList.add('stage-result')
 }
 
-function applyStarReward(){const r=state.lastResult;if(!r||r.star>=5||state.adFixUsedToday>=3)return;clearTimeout(nextTimer);requestRewardAd('별점 +1 보정',()=>{if(state.lastResult!==r)return;state.adFixUsedToday++;r.star++;const prevReward=r.reward;r.reward=calculateReward(r.star,r.dist,r.c,{def:r.planeDef},r.oldAvg,r.rawBefore);r.reward.lucky=prevReward.lucky||0;r.reward.risk=prevReward.risk||0;r.reward.riskFail=prevReward.riskFail||0;r.reward.eventBonus=prevReward.eventBonus||0;r.reward.eventCost=prevReward.eventCost||0;r.reward.insuranceCovered=prevReward.insuranceCovered||0;r.reward.paidCost=prevReward.paidCost||0;r.reward.event=prevReward.event;r.reward.total+=r.reward.lucky+r.reward.risk+r.reward.eventBonus-r.reward.paidCost;let additional=r.reward.total-prevReward.total;const delivery=state.delivery;if(delivery?.active&&delivery.entries?.length){const entry=delivery.entries[delivery.entries.length-1];entry.star=r.star;entry.pay=r.reward.total;delivery.net+=additional;}if(additional>0)credit(additional,'별점 보정 추가금');else if(additional<0)pay(-additional,'별점 조정 반영');state.goodRaw=r.reward.streakLength;state.stars[state.stars.length-1]=r.star;if(state.monthStars.length)state.monthStars[state.monthStars.length-1]=r.star;if(state.records.length){state.records[0].star=r.star;state.records[0].pay=r.reward.total;state.records[0].streak=r.reward.streakDisplayed}if(r.reward.streakDisplayed>0&&r.reward.streakDisplayed%5===0&&!r.bonusTicket){state.forecastTickets++;r.bonusTicket=true}addLog('별점 보정 +1 · 추가 보수 '+money(Math.max(0,additional)));showResult();renderAll();autosave();scheduleNext()},()=>scheduleNext())}
+function applyStarReward(){const r=state.lastResult;if(!r||r.star>=5||state.adFixUsedToday>=3)return;clearTimeout(nextTimer);requestRewardAd('별점 +1 보정',()=>{if(state.lastResult!==r)return;state.adFixUsedToday++;r.star++;const prevReward=r.reward;r.reward=calculateReward(r.star,r.dist,r.c,{def:r.planeDef},r.oldAvg,r.rawBefore);r.reward.lucky=prevReward.lucky||0;r.reward.risk=prevReward.risk||0;r.reward.riskFail=prevReward.riskFail||0;r.reward.eventBonus=prevReward.eventBonus||0;r.reward.eventCost=prevReward.eventCost||0;r.reward.insuranceCovered=prevReward.insuranceCovered||0;r.reward.paidCost=prevReward.paidCost||0;r.reward.event=prevReward.event;r.reward.total+=r.reward.lucky+r.reward.risk+r.reward.eventBonus-r.reward.paidCost;let additional=r.reward.total-prevReward.total;const delivery=state.delivery;if(delivery?.active&&delivery.entries?.length){const entry=delivery.entries[delivery.entries.length-1];entry.star=r.star;entry.pay=r.reward.total;delivery.net+=additional;}if(additional>0)credit(additional,'별점 보정 추가금');else if(additional<0)pay(-additional,'별점 조정 반영');if(r.c.mode==='random')state.goodRaw=r.reward.streakLength;state.stars[state.stars.length-1]=r.star;if(state.monthStars.length)state.monthStars[state.monthStars.length-1]=r.star;if(state.records.length){state.records[0].star=r.star;state.records[0].pay=r.reward.total;state.records[0].streak=r.reward.streakDisplayed}if(r.reward.streakDisplayed>0&&r.reward.streakDisplayed%5===0&&!r.bonusTicket){state.forecastTickets++;r.bonusTicket=true}addLog('별점 보정 +1 · 추가 보수 '+money(Math.max(0,additional)));showResult();renderAll();autosave();scheduleNext()},()=>scheduleNext())}
 function debtInterestRate(amount,late){
  const base=amount<=1000?.005:amount<=5000?.007:amount<=10000?.009:amount<=30000?.012:.018;
  return base+(late>=14?.004:late>=7?.002:0);
@@ -474,7 +493,7 @@ function renderOffice(){
  rates.innerHTML='<b>연체 이자율 (매일)</b><div class="rate-bands"><span>~1천원 <b>0.5%</b></span><span>~5천원 <b>0.7%</b></span><span>~1만원 <b>0.9%</b></span><span>~3만원 <b>1.2%</b></span><span>초과 <b>1.8%</b></span></div><small>12일 후부터 연체 이자 · 연체 7일째 +0.2%p · 14일째 +0.4%p</small>';
  g.append(rates);
  make('📅 월급 · 운영비','5판 = 1일 · 4일마다 운영비',state.month+'개월차');
- make('🔥 연속 성공','4★ 이상을 연속으로 달성',comboCount()+'연속 · Lv.'+comboLevel());
+ if(state.gameMode==='random')make('🔥 연속 성공','4★ 이상을 연속으로 달성',comboCount()+'연속 · Lv.'+comboLevel());
 
  // Put important finance actions near the top without moving the daily quest.
  const questCard=g.firstElementChild;
@@ -617,7 +636,25 @@ const badgeDefs=[
 {id:'combo',icon:'🔥',name:'연속 달인',desc:'4★ 이상 5회 연속',test:()=>state.bestRaw>=5,reward:480},
 {id:'treasure',icon:'💎',name:'보물 사냥꾼',desc:'상자 5개 열기',test:()=>state.openedCrates>=5,reward:370}
 ];
-function ensureNewFields(){state.gameMode=['random','stage'].includes(state.gameMode)?state.gameMode:'random';state.stageUnlocked=Math.max(1,Math.floor(state.stageUnlocked||1));state.stageSelected=limit(Math.floor(state.stageSelected||1),1,state.stageUnlocked);state.stageStars ||= {};state.stageWins ||= 0;state.achievements ||= {};state.pendingDaily ||= [];state.mapVisits ||= 0;state.bestRaw=Math.max(state.bestRaw||0,state.goodRaw||0);state.openedCrates ||= 0;state.xp=Number.isFinite(state.xp)?Math.max(0,state.xp):0;state.newPlaneIds=Array.isArray(state.newPlaneIds)?state.newPlaneIds:[];state.planeCoupons=state.planeCoupons&&typeof state.planeCoupons==='object'?state.planeCoupons:{};state.launchAngle=Number.isFinite(state.launchAngle)?state.launchAngle:38;state.launchPower=Number.isFinite(state.launchPower)?state.launchPower:72;
+function ensureNewFields(){
+ state.version=GAME_VERSION;
+ if(state.gameMode==='stage')state.gameMode='challenge';
+ if(state.gameMode!=='challenge')state.gameMode='random';
+ state.challengeTier=challengeTier(state.challengeTier||legacyStageTier(state.stageSelected)).id;
+ if(state.delivery?.mode==='stage'){
+  state.delivery.mode='challenge';
+  state.delivery.challengeTier=legacyStageTier(state.delivery.stage);
+ }
+ if(state.delivery?.mode==='challenge')state.delivery.challengeTier=challengeTier(state.delivery.challengeTier).id;
+ state.randomFlights=Number.isFinite(state.randomFlights)?Math.max(0,Math.floor(state.randomFlights)):Math.max(0,Math.floor(state.round||0));
+ if(!state.routePairs||typeof state.routePairs!=='object'||Array.isArray(state.routePairs))state.routePairs={};
+ for(const mode of ['random','challenge']){
+  const queue=state.routePairs[mode];
+  if(!Array.isArray(queue)||queue.length>2||queue.some(type=>type!=='accuracy'&&type!=='distance')||
+   (queue.length===2&&queue[0]===queue[1]))state.routePairs[mode]=[];
+ }
+ state.challengeWins=Number.isFinite(state.challengeWins)?Math.max(0,Math.floor(state.challengeWins)):0;
+ state.achievements ||= {};state.pendingDaily ||= [];state.mapVisits ||= 0;state.bestRaw=Math.max(state.bestRaw||0,state.goodRaw||0);state.openedCrates ||= 0;state.xp=Number.isFinite(state.xp)?Math.max(0,state.xp):0;state.newPlaneIds=Array.isArray(state.newPlaneIds)?state.newPlaneIds:[];state.planeCoupons=state.planeCoupons&&typeof state.planeCoupons==='object'?state.planeCoupons:{};state.launchAngle=Number.isFinite(state.launchAngle)?state.launchAngle:38;state.launchPower=Number.isFinite(state.launchPower)?state.launchPower:72;
  if(state.daily && !state.daily.claimed){const def=dailyDefs.find(d=>d.type===state.daily.type);if(def&&state.daily.progress>=def.target&&!state.pendingDaily.some(p=>p.day===state.daily.day))state.pendingDaily.push({day:state.daily.day,name:def.name,cash:420+state.daily.day*28});}
 }
 function rankLevel(){return 1+Math.floor(state.xp/180)}
@@ -864,7 +901,7 @@ const financialBind=bind;
 bind=function(){financialBind();const b=$('#insuranceBtn');if(b)b.onclick=()=>{if(state.flightState==='flying')return notify('발사 전에만 변경할 수 있습니다');state.insuranceOn=!state.insuranceOn;sfx('event');renderFinanceUi();autosave()}};
 
 
-/* Main lobby, progressive stages, equipment and light aerial battle. */
+/* Lobby, deliveries, and aircraft equipment. */
 const partCatalog=[
  {id:'wing',name:'활공 날개',icon:'🪽',desc:'활공 +6% / Lv',factor:1.06,base:230},
  {id:'engine',name:'추진 코어',icon:'🚀',desc:'발사 속도 +4% / Lv',factor:1.04,base:320},
@@ -909,9 +946,7 @@ const fusion=createFusionUI({
 });
 const priorRenderAllForParts=renderAll;
 renderAll=function(){priorRenderAllForParts();renderParts();fusion.render()};
-// A delivery consists of three separate flights. No combat or enemy damage.
-// Select a different route, weather and package on each flight. The second flight
-// changes mission category from the first, while the third is a varied finale.
+// Vary the scenery, weather and cargo within each three-flight delivery.
 const deliveryScenarios=[
  {id:'village',icon:'🌼',name:'마을 산책길',hint:'온화한 바람 · 장애물 적음',wind:.75,pay:1,obstacles:5},
  {id:'lake',icon:'💨',name:'호수 횡단',hint:'바람 변화 · 추가 보수 +12%',wind:1.2,pay:1.12,obstacles:8},
@@ -920,67 +955,50 @@ const deliveryScenarios=[
  {id:'thermal',icon:'🌀',name:'기류 탐험',hint:'상승·하강기류가 많음',wind:1.02,pay:1.08,obstacles:7,moreZones:true},
  {id:'fragile',icon:'📦',name:'소중한 소포',hint:'충돌 주의 · 보수 +20%',wind:.91,pay:1.20,obstacles:6,fragile:true}
 ];
-function configureRoundVariety(c){
- const d=state.delivery,step=Math.min(3,(d?.played||0)+1),past=d?.entries||[];
- const previous=past[past.length-1];
- if(step===1){
-  c.type=state.gameMode==='stage'?(state.stageSelected%2?'accuracy':'distance'):(Math.random()<.52?'accuracy':'distance');
- }else if(step===2){c.type=(past[0]?.type||c.type)==='accuracy'?'distance':'accuracy';}
- else c.type=Math.random()<.50?'accuracy':'distance';
- const n=state.gameMode==='stage'?state.stageSelected:state.round+1;
- if(c.type==='accuracy'){
-  c.target=state.gameMode==='stage'?Math.round(rng(80,165)+Math.min(240,(n-1)*2.1)):
-  Math.round(rng(74,187)+Math.min(215,Math.sqrt(state.round)*15));
-  c.goal=null;
- }else{
-  const t=state.gameMode==='stage'?Math.max(0,n-1):state.round;
-  const growth=state.gameMode==='stage'?Math.min(1300,t*13+33*Math.sqrt(t)):Math.min(1180,t*12+Math.sqrt(t)*30);
-  c.goal=Math.round((490+growth)*rng(.95,1.07)/10)*10;c.target=null;
- }
- let available=deliveryScenarios.filter(x=>!past.some(e=>e.scenarioId===x.id));
- if(!available.length)available=deliveryScenarios;
- const scenario=pick(available);
- const usedWeather=past.map(e=>e.weatherId).filter(Boolean);
- const freshWeather=weatherDefs.filter(w=>!usedWeather.includes(w.id));
- c.weather=pick(freshWeather.length?freshWeather:weatherDefs);
- const usedPack=past.map(e=>e.packId).filter(Boolean);
- let packs=packages.filter(k=>!usedPack.includes(k.id));
- if(scenario.fragile) packs=packs.filter(k=>k.fragile);
- if(!packs.length)packs=packages;
- c.pack={...pick(packs)};c.pack.pay*=scenario.pay;
- c.weight=cargoWeight(c.pack,scenario);
- c.wind=rng(-5.1,5.1)*c.weather.wind*scenario.wind;
- const usedRegions=past.map(e=>e.regionName);
- c.region=pick(regions.filter(r=>!usedRegions.includes(r.name)).length?regions.filter(r=>!usedRegions.includes(r.name)):regions);
- const end=Math.max(1150,Math.max(c.target||0,c.goal||0)*1.9);
- c.zones=zoneList(end,c.weather);
- if(scenario.moreZones){c.zones.push({kind:'up',x:rng(70,end*.7),w:rng(65,120),strength:rng(14,24)});c.zones.push({kind:'down',x:rng(120,end*.7),w:rng(55,110),strength:rng(12,22)});c.zones.sort((a,b)=>a.x-b.x);}
- c.obstacles=obstacles(end).slice(0,scenario.obstacles);
- c.luckyRing={x:rng(95,Math.max(125,Math.min(end*.45,(c.target||c.goal||220)*.85))),y:rng(19,85),taken:false};
- c.scenarioId=scenario.id;c.scenarioIcon=scenario.icon;c.scenarioName=scenario.name;c.scenarioHint=scenario.hint;
- c.step=step;
+function spawnCustomer(){
+ if(state.gameOver||!started)return;
+ clearTimeout(nextTimer);nextTimer=null;
+ document.body.classList.remove('in-flight');
+ $('#result').classList.remove('show');$('#stage').classList.remove('stage-result');
+ const d=state.delivery,mode=d.mode,tier=challengeTier(d.challengeTier);
+ const difficulty=mode==='challenge'?tier.difficulty:randomDifficulty(state.randomFlights);
+ if(mode==='random'&&state.randomFlights>=RANDOM_WARMUP)ensureVisitor();
+ if(state.gameOver)return;
+ const past=d.entries, requirements=routeRequirements(difficulty);
+ const type=nextRouteType(state.routePairs[mode]);
+ const exact=type==='accuracy';
+ const target=exact?Math.round(rng(requirements.targetMin,requirements.targetMax)):null;
+ const goal=exact?null:Math.round(requirements.distance*rng(.96,1.05)/10)*10;
+ const allowedScenarios=difficulty<.15?deliveryScenarios.slice(0,3):deliveryScenarios;
+ const freshScenarios=allowedScenarios.filter(scenario=>!past.some(e=>e.scenarioId===scenario.id));
+ const scenario=pick(freshScenarios.length?freshScenarios:allowedScenarios);
+ const allowedWeather=weatherDefs.filter(w=>{
+  if(['clear','breeze','thermal'].includes(w.id))return true;
+  if(['rain','fog','snow'].includes(w.id))return difficulty>=.18;
+  return difficulty>=.48;
+ });
+ const freshWeather=allowedWeather.filter(w=>!past.some(e=>e.weatherId===w.id));
+ const weather=pick(freshWeather.length?freshWeather:allowedWeather);
+ const allowedPacks=difficulty<.15?packages.filter(pack=>!pack.fragile&&!pack.strict):packages;
+ const eligiblePacks=scenario.fragile?allowedPacks.filter(pack=>pack.fragile):allowedPacks;
+ const freshPacks=eligiblePacks.filter(pack=>!past.some(e=>e.packId===pack.id));
+ const pack={...pick(freshPacks.length?freshPacks:eligiblePacks)};
+ pack.pay*=scenario.pay;
+ const freshRegions=regions.filter(region=>!past.some(e=>e.regionName===region.name));
+ const region=pick(freshRegions.length?freshRegions:regions);
+ const end=Math.max(350,(target||goal)*(exact?1.25:1.55));
+ const zones=zoneList(end,weather,difficulty);
+ if(scenario.moreZones)zones.push({kind:'up',x:rng(end*.22,end*.68),w:85,strength:12+difficulty*14});
+ state.current={mode,difficulty,challengeTier:d.challengeTier,type,target,goal,weather,pack,region,zones,
+  starRules:exact?requirements.accuracy:distanceRules(goal,difficulty),
+  weight:cargoWeight(pack,scenario),wind:rng(-1,1)*(2.0+6.0*difficulty)*weather.wind*scenario.wind,
+  obstacles:obstacles(end,Math.round(1+difficulty*(scenario.obstacles+3)),difficulty),
+  eventChance:.59*difficulty,mapSeen:false,mapUsed:false,
+  luckyRing:{x:rng(95,Math.max(125,(target||goal)*.85)),y:rng(19,85),taken:false},
+  scenarioId:scenario.id,scenarioName:scenario.name,scenarioHint:scenario.hint};
+ $('#mission').open=false;state.flightState='ready';flight=null;cameraX=0;cameraAim=0;manualCamera=false;sceneDrag=null;
+ renderAll();selectRoundDefaults(state.current);updateDeliveryScreen();tutorial.routeReady();autosave();
 }
-const priorStageSpawn=spawnCustomer;
-spawnCustomer=function(){
- priorStageSpawn();
- if(!state.current)return;
- const c=state.current,n=state.gameMode==='stage'?state.stageSelected:state.round+1;
- if(state.gameMode==='stage'){
-  c.type=(n%4===0||n%6===0)?'distance':'accuracy';
-  if(c.type==='accuracy'){
-   c.target=Math.round(rng(80,165)+Math.min(240,(n-1)*2.1)); c.goal=null;
-  }else{
-   const t=Math.max(0,n-1);
-   c.goal=Math.round((490+Math.min(1300,t*13+33*Math.sqrt(t)))*rng(.95,1.04)/10)*10; c.target=null;
-  }
- }else{
-  if(c.type==='accuracy') c.target=Math.round(rng(74,187)+Math.min(215,Math.sqrt(state.round)*15));
-  else c.goal=Math.round((490+Math.min(1180,state.round*12+Math.sqrt(state.round)*30))*rng(.95,1.07)/10)*10;
- }
- configureRoundVariety(c);
- updateMission();
- renderAll();selectRoundDefaults(c);updateDeliveryScreen();tutorial.routeReady();
-};
 const coreCompleteFlight=completeFlight;
 completeFlight=function(){
  const previousRound=state.round;
@@ -996,15 +1014,18 @@ completeFlight=function(){
    scenarioName:result.c.scenarioName,planeName:result.planeDef?.name||'종이비행기',
    angle:flight?flight.launchAngle:Number($('#angle').value),power:flight?flight.launchPower:Number($('#power').value)});
   d.net+=result.reward.total;
-  d.mode=state.gameMode;
   $('#resultNext').textContent=d.played<3?`${d.played}/3 완료 · 다음 비행 준비`:'3/3 완료 · 최종 보상 확인';
  }
  updateDeliveryScreen();autosave();
 };
+function matchingDelivery(){
+ const d=state.delivery;
+ return d?.active&&d.mode===state.gameMode&&(d.mode!=='challenge'||d.challengeTier===state.challengeTier);
+}
 function beginDeliverySession(){
- const old=state.delivery;
- if(old?.active&&old.mode===state.gameMode&&old.stage===state.stageSelected&&old.played<3)return;
- state.delivery={active:true,mode:state.gameMode,stage:state.stageSelected,played:0,net:0,entries:[],startedDay:state.day};
+ if(matchingDelivery())return;
+ state.delivery={active:true,mode:state.gameMode,played:0,net:0,entries:[],startedDay:state.day};
+ if(state.gameMode==='challenge')state.delivery.challengeTier=state.challengeTier;
  autosave();
 }
 function syncReadyFlightControls(){
@@ -1035,13 +1056,14 @@ function updateDeliveryScreen(){
  const d=state.delivery,step=limit((d?.played||0)+1,1,3);
  const ready=state.flightState==='ready'&&!!state.current&&started;
  $('#readyFlight').classList.toggle('show',ready);
- $('#deliveryPill').textContent=training?'연습 비행':'배송 '+step+' / 3';
+ const tierName=d?.mode==='challenge'?challengeTier(d.challengeTier).name+' · ':'';
+ $('#deliveryPill').textContent=training?'연습 비행':tierName+'배송 '+step+' / 3';
  $('#practiceEstimate').hidden=!training||!ready;
  $$('.round-marks i').forEach((mark,i)=>{
   mark.classList.toggle('active',i===step-1);
   mark.classList.toggle('finished',i<(d?.played||0));
  });
- $('#readyTitle').textContent=training?'연습 비행':(state.gameMode==='stage'?`STAGE ${state.stageSelected} · `:'')+`배송 ${step} / 3`;
+ $('#readyTitle').textContent=$('#deliveryPill').textContent;
  const c=state.current;
  $('#readyScenario').textContent=c?.scenarioName||'출발 준비';
  $('#readyDetail').textContent=c?`${c.weather.icon} ${c.weather.name} · ${c.pack.name} · 무게 ${(c.weight*100).toFixed(1)}%`:'비행 준비';
@@ -1053,35 +1075,32 @@ function updateDeliveryScreen(){
 function concludeDelivery(){
  const d=state.delivery;if(!d?.active||d.played<3)return;
  d.active=false;
- const avg=d.entries.reduce((sum,e)=>sum+e.star,0)/3;
- const good=d.entries.filter(e=>e.star>=3).length;
- const cleared=avg>=3&&good>=2;
- let bonus=0,crate=false,crateCount=0;
- if(d.mode==='stage'){
-  if(cleared){
-   const n=d.stage,old=state.stageStars[n]||0,record=limit(Math.round(avg),1,5);
-   state.stageStars[n]=Math.max(old,record);
-   state.stageUnlocked=Math.max(state.stageUnlocked,n+1);
-   state.stageWins++;
-   if(!old){bonus=240+n*30;credit(bonus,'스테이지 최초 클리어');if(n%5===0){state.crates++;crate=true;crateCount++;}}
-   if(state.stageSelected===n)state.stageSelected=n+1;
-  }
- }else if(cleared){bonus=110+Math.floor(avg*90);credit(bonus,'3판 배송 완료 보너스');}
- if(avg>=4.3){state.crates++;crate=true;crateCount++;}
- const perfect=d.entries.length===3&&d.entries.every(e=>e.star===5);
- if(perfect){state.crates++;crate=true;crateCount++;}
- d.perfect=perfect;recordDeliveryStreak(d);
+ const scores=d.entries.map(entry=>entry.star);
+ const totalStars=scores.reduce((total,star)=>total+star,0),avg=totalStars/3;
+ const tier=d.mode==='challenge'?challengeTier(d.challengeTier):null;
+ const cleared=tier?challengeCleared(scores,tier):avg>=3&&scores.filter(star=>star>=3).length>=2;
+ const bonus=cleared?(tier?tier.clearBonus:110+Math.floor(avg*90)):0;
+ if(bonus)credit(bonus,tier?tier.name+' 도전 클리어':'3판 배송 완료 보너스');
+ if(tier&&cleared)state.challengeWins++;
+ const perfect=scores.length===3&&scores.every(star=>star===5);
+ const crateCount=Number(avg>=4.3)+Number(perfect);
+ state.crates+=crateCount;
+ d.perfect=perfect;
+ if(!tier)recordDeliveryStreak(d);
  const stamp=$('#perfectStamp');stamp.hidden=!perfect;stamp.classList.remove('imprint');
  if(perfect)setTimeout(()=>{if(state.delivery===d&&$('#deliveryOverlay').classList.contains('show')){stamp.classList.add('imprint');sfx('stamp');}},930);
- d.net+=bonus;d.bonus=bonus;d.crate=crate;d.avg=avg;d.cleared=cleared;
+ d.net+=bonus;d.bonus=bonus;d.crate=crateCount>0;d.avg=avg;d.cleared=cleared;
  renderAll();autosave();
- $('#deliverySummaryKicker').textContent=d.mode==='stage'?'STAGE '+String(d.stage).padStart(2,'0'):'THREE-FLIGHT DELIVERY';
- $('#deliveryHeading').textContent=d.mode==='stage'?(cleared?'스테이지 클리어!':'다음에 재도전!'):'배송 3판 완료!';
+ $('#deliverySummaryKicker').textContent=tier?'도전 배송 · '+tier.name:'THREE-FLIGHT DELIVERY';
+ $('#deliveryHeading').textContent=tier?(cleared?'도전 성공!':'도전 종료'):'배송 3판 완료!';
  $('#deliveryStars').textContent=stars(limit(Math.round(avg),1,5));
  $('#deliveryProgress').innerHTML=d.entries.map((r,i)=>`<span><div><strong>${i+1}판 · ${safe(r.scenarioName||'배송')}</strong><small>${safe(r.planeName||'종이비행기')}</small></div><b>${stars(r.star)}</b></span>`).join('');
  $('#deliveryTotal').textContent=(d.net>=0?'+':'−')+money(Math.abs(d.net));
  $('#deliveryTotal').classList.toggle('negative',d.net<0);
- $('#deliveryBonusLine').textContent='';
+ const bonusLine=$('#deliveryBonusLine');
+ bonusLine.hidden=!tier;
+ bonusLine.textContent=tier?(cleared?`별 ${totalStars}/15 · 클리어 보너스 +${money(bonus)} 포함`:
+  `별 ${totalStars}/15 · 통과 기준 별 ${tier.stars}개와 3★ 이상 ${tier.minSuccess}판`):'';
  const cards=$('#deliveryRewardCards');cards.replaceChildren();
  const gains=[]; // Completion bonus is included in the consolidated total.
  for(const [i,r] of gains.entries()){const e=document.createElement('div');e.className='delivery-reward-card '+r.cls;e.style.setProperty('--reveal-delay',(520+i*200)+'ms');e.innerHTML=`<span>${r.icon}</span><div>${r.title}<b>${r.value}</b></div>`;cards.append(e);}
@@ -1155,7 +1174,6 @@ pay=function(amount,reason){const before=state.money,output=oldPayVisual(amount,
 appendAchievements=function(){const g=$('#achievementList');if(!g)return;g.replaceChildren();for(const a of badgeDefs){const ok=!!state.achievements?.[a.id],el=document.createElement('article');el.className='achievement '+(ok?'unlocked':'');el.innerHTML=`<b>${ok?a.icon:'🔒'} ${safe(a.name)}</b><p>${safe(a.desc)} · ${money(a.reward)} ${ok?'✓':' '}</p>`;g.append(el);}};
 const renderNewRecords=renderRecords;
 renderRecords=function(){renderNewRecords();appendAchievements();};
-function stageTheme(n){const names=['햇살 평원','호숫가 돌풍','달빛 골목','하늘 우편로','산들바람 정상'];return names[(n-1)%5]}
 function showLobby(){
  if(training){training=false;practiceAim=null;applySavedTuning();}
  document.body.classList.remove('training-mode');
@@ -1170,18 +1188,24 @@ function showLobby(){
  rewardQueue.push(...lobbyRewardQueue.splice(0));scheduleLobbyPresentation();
 }
 function refreshLobby(){
- ensureNewFields();$$('#modeSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.gameMode));
- $('#lobbyRandom').hidden=state.gameMode!=='random';$('#lobbyStage').hidden=state.gameMode!=='stage';
- const n=state.stageSelected,st=limit(state.stageStars[n]||0,0,5);
- $('#stageNumber').textContent=String(n).padStart(2,'0');$('#stageName').textContent=stageTheme(n);
- $('#stageStars').textContent='★'.repeat(st)+'☆'.repeat(5-st);
- $('#stageDesc').textContent='평균 3★ · 2판 성공 시 해금';
- $('#stagePrev').disabled=n<=1;$('#stageNext').disabled=n>=state.stageUnlocked;
- $('#lobbyProgress').textContent='STAGE '+String(state.stageUnlocked).padStart(2,'0');
+ ensureNewFields();
+ const challenge=state.gameMode==='challenge',tier=challengeTier(state.challengeTier);
+ $$('#modeSwitch button').forEach(button=>{
+  const active=button.dataset.mode===state.gameMode;
+  button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+ });
+ $('#lobbyStreak').hidden=challenge;
+ $('#lobbyChallenge').hidden=!challenge;
+ $$('#challengeTiers button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.tier===tier.id)));
+ $('#challengePremium').textContent='3★ 이상 비행 보수 +'+Math.round(tier.premium*100)+'%';
+ $('#challengeBonus').textContent='클리어 +'+money(tier.clearBonus);
+ $('#challengeCriteria').textContent=`별 ${tier.stars}개 이상 · 3★ 이상 ${tier.minSuccess}판`;
  $('#lobbyRank').textContent='Lv.'+rankLevel();$('#lobbyCoins').textContent=money(state.money);
- $('#lobbyDebt').textContent='빚 '+money(debtSum());$('#lobbyClears').textContent='클리어 '+state.stageWins+'회';
- const d=state.delivery,ongoing=d?.active&&d.mode===state.gameMode&&d.stage===state.stageSelected;
- $('#lobbyStart span:first-child').textContent=state.gameOver?'새 인생 시작':ongoing?`배송 이어하기 · ${d.played}/3`:state.gameMode==='stage'?`STAGE ${String(n).padStart(2,'0')} · 3판 시작`:'3판 배송 시작';
+ $('#lobbyDebt').textContent='빚 '+money(debtSum());
+ const clears=$('#lobbyClears');clears.hidden=!challenge;clears.textContent='도전 성공 '+state.challengeWins+'회';
+ const d=state.delivery;
+ $('#lobbyStart span:first-child').textContent=state.gameOver?'새 인생 시작':matchingDelivery()?
+  (d.played===3?'배송 결과 확인':`배송 이어하기 · ${d.played}/3`):challenge?'도전 배송 시작':'3판 배송 시작';
 }
 let changingScene=false;
 function cloudTransition(action){
@@ -1199,7 +1223,7 @@ function startPractice(onReady){
   document.body.classList.add('playing','training-mode');
   $('#lobby').classList.remove('show');setDockHeight(59,false);
   state.current={type:'accuracy',weather:weatherDefs[0],pack:packages[0],weight:1,wind:0,
-   target:145,region:regions[0],zones:[],obstacles:[],scenarioName:'연습 활주로'};
+   target:145,region:regions[0],zones:[],obstacles:[],starRules:routeRequirements(0).accuracy,scenarioName:'연습 활주로'};
   state.flightState='ready';$('#mission').open=false;
   updateMission();setTuning(11,38);updateDeliveryScreen();sizeWorld();onReady();
  });
@@ -1211,7 +1235,9 @@ function beginSelectedMode(){
   beginDeliverySession();
   started=true;document.body.classList.remove('lobby-mode','sheet-open');document.body.classList.add('playing');
   $('#lobby').classList.remove('show');setDockHeight(59,false);
-  spawnCustomer();updateDeliveryScreen();sizeWorld();
+  if(state.delivery.played===3){updateDeliveryScreen();concludeDelivery();}
+  else spawnCustomer();
+  sizeWorld();
  });
 }
 function goToLobby(){
@@ -1330,9 +1356,13 @@ bind=function(){
   beginDeliverySession();started=true;document.body.classList.add('playing');document.body.classList.remove('lobby-mode');
   $('#lobby').classList.remove('show');spawnCustomer();updateDeliveryScreen();
  });};
- $$('#modeSwitch button').forEach(b=>b.onclick=()=>{state.gameMode=b.dataset.mode;refreshLobby();sfx('event');autosave()});
- $('#stagePrev').onclick=()=>{state.stageSelected=Math.max(1,state.stageSelected-1);refreshLobby();autosave()};
- $('#stageNext').onclick=()=>{state.stageSelected=Math.min(state.stageUnlocked,state.stageSelected+1);refreshLobby();autosave()};
+ $$('#modeSwitch button').forEach(b=>b.onclick=()=>{state.gameMode=b.dataset.mode;refreshLobby();scheduleLobbyPresentation();sfx('event');autosave()});
+ $('#challengeTiers').replaceChildren(...CHALLENGE_TIERS.map(tier=>{
+  const button=document.createElement('button');button.type='button';button.dataset.tier=tier.id;button.textContent=tier.name;return button;
+ }));
+ $$('#challengeTiers button').forEach(button=>button.onclick=()=>{
+  state.challengeTier=button.dataset.tier;refreshLobby();autosave();
+ });
  $('#planeSelect').addEventListener('change',renderParts);
  $('#planePrev').addEventListener('click',()=>setTimeout(renderParts,0));
  $('#planeNext').addEventListener('click',()=>setTimeout(renderParts,0));
@@ -1512,6 +1542,7 @@ function scheduleLobbyPresentation(){
 function presentLobbyProgress(){
  if(!document.body.classList.contains('lobby-mode'))return;
  if(!lobbyCanPresent()||streakAnimating||rewardRunning){scheduleLobbyPresentation();return;}
+ if(state.gameMode!=='random'){drainRewards();return;}
  const v=ensureDeliveryStreak(),e=v.pending[0];
  if(!e){drainRewards();return;}
  streakAnimating=true;const widget=$('#lobbyStreak');
@@ -1521,12 +1552,12 @@ function presentLobbyProgress(){
  const delay=rollover?420:80;
  if(rollover)renderDeliveryStreak(0);
  setTimeout(()=>{
-  if(!lobbyCanPresent()){streakAnimating=false;renderDeliveryStreak(v.display);scheduleLobbyPresentation();return;}
+  if(!lobbyCanPresent()||state.gameMode!=='random'){streakAnimating=false;renderDeliveryStreak(v.display);scheduleLobbyPresentation();return;}
   widget.classList.add(e.to===0?'extinguishing':'charging');renderDeliveryStreak(e.to);sfx(e.to===0?'extinguish':'streak');
   setTimeout(()=>{
    widget.classList.remove('extinguishing','charging');
    // If the player leaves mid-animation it remains queued for the next entry.
-   if(!lobbyCanPresent()){streakAnimating=false;renderDeliveryStreak(v.display);scheduleLobbyPresentation();return;}
+   if(!lobbyCanPresent()||state.gameMode!=='random'){streakAnimating=false;renderDeliveryStreak(v.display);scheduleLobbyPresentation();return;}
    v.display=e.to;v.pending.shift();
    if(e.reward){const slot=$('#streakTrack').children[e.reward==='epic'?4:2];slot.classList.add('claimed');setTimeout(()=>slot.classList.remove('claimed'),600);rewardQueue.unshift({icon:e.reward==='epic'?'💎':'🎁',title:(e.reward==='epic'?'에픽':'행운')+' 상자 +1',amount:0,kind:'item'});}
    streakAnimating=false;save();drainRewards();scheduleLobbyPresentation();

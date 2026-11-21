@@ -75,7 +75,43 @@
 }
 #lobby .lobby-actions button.lucky-ready { color: #513b2a; background: #ffe6a6; }
 #lobby .lobby-footer { color: #fff6da; }
-#lobby .lobby-mode-body { border-color: #f0d49775; background: #274741; }
+#lobbyChallenge {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #f0d49775;
+  border-radius: 13px;
+  background: #274741;
+}
+#challengeTiers { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; }
+#challengeTiers button {
+  min-height: 38px;
+  padding: 3px;
+  border: 1px solid #b6c7a872;
+  border-radius: 8px;
+  background: #1d3733;
+  color: #f7eacb;
+  font-size: 13px;
+  font-weight: 850;
+}
+#challengeTiers button[aria-pressed="true"] {
+  border-color: #ffe4a7;
+  background: #ffda88;
+  color: #54392a;
+  box-shadow: inset 0 -3px #d49050;
+}
+.challenge-rewards {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  color: #f7e9c9;
+  font-size: 11px;
+  font-weight: 800;
+}
+.challenge-rewards b { color: #ffdb8d; white-space: nowrap; }
+#challengeCriteria { margin: 0; color: #e1ead5; font-size: 11px; }
+#deliveryBonusLine { color: #3c594a; }
 body.lobby-mode #dock, #dock .nav { background: #214037; border-color: #a0ba8c8c; }
 #dock .nav button { color: #ecf0d8; }
 #dock .nav button.active { background: #3c6755; color: #ffe3a2; box-shadow: inset 0 -2px #f0c976; }
@@ -259,7 +295,12 @@ body.playing #result .result-mini { background: #ecd4a575; border-color: #bc9866
   #lobby .lobby-hero { padding-bottom: 6px; }
   #lobby .lobby-panel { gap: 5px !important; padding: 0 2px 5px; }
   #lobby .lobby-start { min-height: 41px; font-size: 16px; }
+  #lobbyChallenge { gap: 4px; padding: 5px 7px; }
+  #challengeTiers button { min-height: 33px; }
   #lobby .lobby-wallet { right: max(13px,env(safe-area-inset-right)); left: auto; }
+  #lobby:has(#lobbyChallenge:not([hidden])) .lobby-wallet {
+    left: max(13px,env(safe-area-inset-left)); right: auto;
+  }
   .flight-pad { width: 91px; height: 91px; }
   body.playing.in-flight .flight-controls #brakeBtn { width: 54px; height: 54px; }
 }
