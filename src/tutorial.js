@@ -16,7 +16,7 @@ const tips = {
   shop: { title: '격납고', text: '상점에서 새 기체를 구매하거나 뽑아 격납고를 채울 수 있어요.' },
   insurance: { title: '배송 보험', text: '보험을 켜면 비행마다 보험료를 내고 사고 손실의 70%를 보전받아요.' },
   express: { title: '특급 배송', text: '14초 이내에 4★ 이상이면 보수 +35%. 실패하면 위약금이 있어요.' },
-  route: { title: '장거리 배송', text: '이번 의뢰는 과녁에 맞추는 대신 목표 거리를 넘겨야 해요.' },
+  route: { title: '장거리 배송', text: '금색 5★ 구간에 착륙하세요. 초과가 예상되면 제동으로 거리를 줄일 수 있어요.' },
 };
 
 export function createTutorial({ getState, save, canShow, isLobby, menuOpen, activeMenu, startPractice, exitPractice }) {

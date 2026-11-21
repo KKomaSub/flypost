@@ -34,8 +34,24 @@ export function routeRequirements(difficulty) {
 }
 
 export function distanceRules(goal, difficulty) {
-  const blend = (easy, hard) => goal * (easy * (1 - difficulty) + hard * difficulty);
-  return { two:blend(.53,.73), three:goal, four:blend(1.23,1.20), five:blend(1.45,1.37) };
+  const width = Math.max(50, Math.round(goal * (.17 - difficulty * .035)));
+  const step = Math.max(30, Math.round(goal * (.10 - difficulty * .025)));
+  const fiveEnd = goal + width;
+  return {
+    two:Math.round(goal * (.48 + difficulty * .07)),
+    three:Math.round(goal * (.70 + difficulty * .05)),
+    four:Math.round(goal * (.86 + difficulty * .035)),
+    five:goal, fiveEnd, fourEnd:fiveEnd + step, threeEnd:fiveEnd + 2 * step,
+    twoEnd:fiveEnd + 3 * step, limit:fiveEnd + 4 * step,
+  };
+}
+
+export function distanceStars(distance, rules) {
+  if (distance >= rules.five && distance <= rules.fiveEnd) return 5;
+  if (distance >= rules.four && distance <= rules.fourEnd) return 4;
+  if (distance >= rules.three && distance <= rules.threeEnd) return 3;
+  if (distance >= rules.two && distance <= rules.twoEnd) return 2;
+  return 1;
 }
 
 export function nextRouteType(queue, random = Math.random) {

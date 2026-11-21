@@ -93,6 +93,10 @@
    <summary aria-label="의뢰 정보"><span id="windHint">☀️ 맑음</span><span class="detail-knob" aria-hidden="true">▾</span></summary>
    <div class="mission-sheet"><strong id="missionName">우편 의뢰</strong><span id="missionDesc"></span><span id="missionCriteria"></span></div>
   </details>
+  <div id="landingGuide" class="landing-guide" hidden>
+   <div class="landing-readout"><b id="landingCue"></b><span id="landingEstimate"></span></div>
+   <div class="landing-tape" aria-hidden="true"><i class="landing-safe"></i><i class="landing-here"></i><i class="landing-marker"></i></div>
+  </div>
   <div class="scene-tools" aria-label="카메라 조작">
    <button id="viewLeft" type="button" aria-label="왼쪽 화면 이동">‹</button>
    <button id="viewHome" type="button" aria-label="비행기 위치로 돌아가기">◎</button>
@@ -116,7 +120,7 @@
    <div class="result-head"><strong id="resultTitle">배달 완료!</strong><span class="result-stars" id="resultStars">★★★★★</span></div>
    <p class="result-details" id="resultDesc">거리와 별점</p>
    <div class="result-grid">
-    <div class="result-mini"><small>비행 거리</small><b id="resultDistance">0m</b></div><div class="result-mini"><small>목표 / 오차</small><b id="resultTarget">-</b></div><div class="result-mini"><small>기본 보수</small><b id="resultBase">0원</b></div><div class="result-mini"><small>초과 보너스</small><b id="resultExcess">0원</b></div><div class="result-mini" id="resultComboCard"><small>연속 보너스</small><b id="resultCombo">0원</b></div><div class="result-mini"><small>합계 · 내구도</small><b id="resultTotal">0원</b></div>
+    <div class="result-mini"><small>비행 거리</small><b id="resultDistance">0m</b></div><div class="result-mini"><small>목표 / 오차</small><b id="resultTarget">-</b></div><div class="result-mini"><small>기본 보수</small><b id="resultBase">0원</b></div><div class="result-mini"><small id="resultExcessLabel">착륙 보너스</small><b id="resultExcess">0원</b></div><div class="result-mini" id="resultComboCard"><small>연속 보너스</small><b id="resultCombo">0원</b></div><div class="result-mini"><small>합계 · 내구도</small><b id="resultTotal">0원</b></div>
    </div>
    <div id="resultIncident" class="result-incident neutral" aria-live="polite"></div>
    <div class="result-bottom"><p id="resultNext">다음 손님 자동 방문</p><button class="small-action" id="starAdBtn">광고로 +1★</button></div>
@@ -205,7 +209,7 @@
 </div>
 <div class="overlay" id="mapOverlay">
  <canvas id="forecastMap"></canvas>
- <div class="map-head"><div class="map-head-main"><span>🗺️ 전체 항로 지도 · 무료</span><span id="mapTime">15.0초</span></div><div class="map-note">좌우로 이동해 기류를 확인하세요</div><div class="time-track"><span id="mapTimeFill"></span></div><div class="map-legend"><span><b style="color:#278268">↑</b> 상승기류</span><span><b style="color:#8d51a7">↓</b> 하강기류</span><span><b style="color:#f27c65">│</b> 목표</span></div></div>
+ <div class="map-head"><div class="map-head-main"><span>🗺️ 전체 항로 지도 · 무료</span><span id="mapTime">15.0초</span></div><div class="map-note">좌우로 이동해 기류를 확인하세요</div><div class="time-track"><span id="mapTimeFill"></span></div><div class="map-legend"><span><b style="color:#278268">↑</b> 상승기류</span><span><b style="color:#8d51a7">↓</b> 하강기류</span><span id="pointMapLegend"><b style="color:#f27c65">│</b> 목표</span><span id="landingMapLegend" hidden><b style="color:#28865b">▰</b> 5★ 구간 · <b style="color:#a33e35">│</b> 제한선</span></div></div>
  <div class="map-bottom"><button id="mapLeft">← 왼쪽</button><button id="mapRight">오른쪽 →</button><button id="mapClose">닫기</button></div>
 </div>
 <div id="deliveryOverlay" role="dialog" aria-modal="true" aria-label="배송 결과" aria-hidden="true">

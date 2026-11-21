@@ -391,8 +391,11 @@ class Airfield extends Phaser.Scene {
         .lineBetween(p.x, p.y + 1, p.x + 7, p.y - 4);
     }
 
-    const exact = mission.type === 'accuracy';
-    const goal = exact ? mission.target : mission.goal;
+    if (mission.type === 'distance') {
+      this.drawRunway(g, w, h, view);
+      return;
+    }
+    const goal = mission.target;
     const p = project(goal, 0);
     if (p.x < 30 || p.x > w - 30 || p.y > h - 35) {
       const x = clamp(p.x, 46, w - 46);
@@ -404,23 +407,50 @@ class Airfield extends Phaser.Scene {
       return;
     }
     const top = clamp(p.y - 92, 97, Math.max(97, p.y - 45));
-    const marker = exact ? 0xc45e44 : 0x387b65;
+    const marker = 0xc45e44;
     const glow = .85 + .15 * Math.sin(t * 4);
     g.lineStyle(2, 0xfff0bd, .92).lineBetween(p.x, top + 8, p.x, p.y - 2);
     g.fillStyle(marker).fillTriangle(p.x, top + 8, p.x + 25, top + 13, p.x, top + 23);
     g.fillStyle(0x304e45, .95).fillRoundedRect(p.x - 34, top - 12, 68, 22, 9);
     g.lineStyle(1, 0xffe8af).strokeRoundedRect(p.x - 34, top - 12, 68, 22, 9);
     this.label(goal + 'm', p.x, top - 1);
-    if (exact) {
-      g.fillStyle(0x304939, .53).fillEllipse(p.x, p.y + 3, 71, 23);
-      for (const [width, height, color] of [[64, 21, 0xffedc0], [49, 16, 0xd96c49], [33, 11, 0xffedc0], [17, 6, 0xd96c49]]) {
-        g.fillStyle(color).fillEllipse(p.x, p.y, width, height);
-      }
-      g.fillStyle(0xffe4a1, glow).fillCircle(p.x - 34, p.y + 2, 2.5).fillCircle(p.x + 34, p.y + 2, 2.5);
-    } else {
-      g.fillStyle(0xffedc0).fillRoundedRect(p.x - 19, p.y - 4, 39, 8, 3);
-      for (const dx of [-11, 1, 13]) g.fillStyle(marker).fillRect(p.x + dx, p.y - 4, 5, 8);
+    g.fillStyle(0x304939, .53).fillEllipse(p.x, p.y + 3, 71, 23);
+    for (const [width, height, color] of [[64, 21, 0xffedc0], [49, 16, 0xd96c49], [33, 11, 0xffedc0], [17, 6, 0xd96c49]]) {
+      g.fillStyle(color).fillEllipse(p.x, p.y, width, height);
     }
+    g.fillStyle(0xffe4a1, glow).fillCircle(p.x - 34, p.y + 2, 2.5).fillCircle(p.x + 34, p.y + 2, 2.5);
+  }
+
+  drawRunway(g, w, h, { mission, project }) {
+    const rules = mission.starRules;
+    const start = project(rules.five, 0), end = project(rules.fiveEnd, 0), limit = project(rules.limit, 0);
+    const left = Math.max(0, start.x), right = Math.min(w, end.x);
+    const ground = start.y;
+    if (right > left) {
+      g.fillStyle(0x2b4e3c, .9).fillRect(left, ground - 13, right - left, 22);
+      g.lineStyle(2, 0xffdd7d).lineBetween(left, ground - 13, right, ground - 13);
+      g.lineStyle(2, 0xffdd7d).lineBetween(left, ground + 9, right, ground + 9);
+      for (let x = start.x + Math.ceil((left - start.x) / 19) * 19; x < right - 6; x += 19) {
+        g.fillStyle(0xffe7ac).fillRect(x, ground - 3, 7, 2);
+      }
+    }
+    const overStart = Math.max(0, end.x), overEnd = Math.min(w, limit.x);
+    if (overEnd > overStart) {
+      g.fillStyle(0xb56039, .56).fillRect(overStart, ground - 9, overEnd - overStart, 17);
+      g.lineStyle(2, 0xffa761).lineBetween(overStart, ground - 9, overEnd, ground - 9);
+    }
+    if (limit.x >= 0 && limit.x <= w) {
+      g.lineStyle(2, 0xffbe90);
+      for (let i = 0; i < 6; i++) g.lineBetween(limit.x, ground - i * 10, limit.x, ground - i * 10 - 5);
+      g.fillStyle(0x923d33).fillRoundedRect(clamp(limit.x - 29, 0, w - 58), ground - 70, 58, 19, 5);
+      this.label('제한선', clamp(limit.x, 29, w - 29), ground - 60);
+    }
+    if (end.x < 0) return;
+    const tag = start.x > w - 50 ? '착륙 구간 ›' : '★ 착륙 구간';
+    const x = clamp((start.x + end.x) / 2, 47, w - 47), y = clamp(ground - 36, 85, Math.max(85,h - 92));
+    g.fillStyle(0x29483b).fillRoundedRect(x - 44, y - 10, 88, 20, 6);
+    g.lineStyle(1, 0xffdf87).strokeRoundedRect(x - 44, y - 10, 88, 20, 6);
+    this.label(tag, x, y);
   }
 }
 
