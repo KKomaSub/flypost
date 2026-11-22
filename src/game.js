@@ -297,9 +297,10 @@ function launch(){
 function airBrake(){
  const f=flight;
  if(state.flightState!=='flying'||!f||f.braked||(training&&!tutorial.canBrake()))return;
- f.braked=true;f.vx*=.67;f.vy-=11;
+ const distanceFlight=state.current.type==='distance';
+ f.braked=true;f.vx*=distanceFlight?.82:.67;f.vy-=distanceFlight?6:11;
  if(training)tutorial.braked();
- else if(state.current.type!=='distance')banner('⤓ 에어 브레이크! 속도 감소');
+ else if(!distanceFlight)banner('⤓ 에어 브레이크! 속도 감소');
  updateFlightHud(f,true);sparkles('✨',7);sfx('brake');
 }
 function correction(x,y){
@@ -320,7 +321,7 @@ function applyFlightForces(f,dt,c,p){
  f.vx+=(wind*.32/p.stable-f.vx*drag)*dt;
  f.vy+=(-20.7+(speed/110)*2.4*p.lift*c.weather.lift-f.vy*drag*.38)*dt;
  if(f.braked&&c.type==='distance'){
-  f.vx*=Math.exp(-.23*dt);f.vy-=13*dt;
+  f.vx*=Math.exp(-.11*dt);f.vy-=6*dt;
  }
 }
 function applyCurrents(f,dt,zones,p){
@@ -358,7 +359,7 @@ function renderLandingBands(r){
   const band=document.createElement('span');
   band.dataset.stars=rating;band.toggleAttribute('data-overshoot',overshoot);
   band.style.flexGrow=end-start;
-  band.textContent=!overshoot&&(rating===3||rating===5)?rating+'★':rating;
+  band.textContent=rating;
   descriptions.push(`${overshoot?start+1:start}–${end+(start>=r.five||end===r.limit?0:-1)}m ${rating}별`);
   return band;
  });

@@ -36,13 +36,14 @@ export function routeRequirements(difficulty) {
 export function distanceRules(goal, difficulty) {
   const width = Math.max(50, Math.round(goal * (.17 - difficulty * .035)));
   const step = Math.max(30, Math.round(goal * (.10 - difficulty * .025)));
-  const fiveEnd = goal + width;
+  const fiveEnd = goal + Math.round(width * .9);
+  const fourEnd = goal + width + step;
   return {
     two:Math.round(goal * (.48 + difficulty * .07)),
     three:Math.round(goal * (.70 + difficulty * .05)),
     four:Math.round(goal * (.86 + difficulty * .035)),
-    five:goal, fiveEnd, fourEnd:fiveEnd + step, threeEnd:fiveEnd + 2 * step,
-    twoEnd:fiveEnd + 3 * step, limit:fiveEnd + 4 * step,
+    five:goal, fiveEnd, fourEnd, threeEnd:fourEnd + step,
+    twoEnd:fourEnd + 2 * step, limit:fourEnd + 3 * step,
   };
 }
 
