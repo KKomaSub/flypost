@@ -94,8 +94,12 @@
    <div class="mission-sheet"><strong id="missionName">우편 의뢰</strong><span id="missionDesc"></span><span id="missionCriteria"></span></div>
   </details>
   <div id="landingGuide" class="landing-guide" hidden>
-   <div class="landing-readout"><b id="landingCue"></b><span id="landingEstimate"></span></div>
-   <div class="landing-tape" aria-hidden="true"><i class="landing-safe"></i><i class="landing-here"></i><i class="landing-marker"></i></div>
+   <div class="landing-readout"><b>착륙 별점</b><span id="landingPosition">현재 0m</span></div>
+   <div id="landingTape" class="landing-tape" role="img">
+    <div id="landingBands" class="landing-bands" aria-hidden="true"></div>
+    <i class="landing-here" aria-hidden="true"></i>
+   </div>
+   <div class="landing-axis" aria-hidden="true"><span>0m</span><span>초과 감점</span><span id="landingLimit"></span></div>
   </div>
   <div class="scene-tools" aria-label="카메라 조작">
    <button id="viewLeft" type="button" aria-label="왼쪽 화면 이동">‹</button>

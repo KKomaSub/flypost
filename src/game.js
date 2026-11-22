@@ -245,7 +245,10 @@ const flightDirectionButtons=$$('.flight-pad button');
 const flightBrakeButton=$('#brakeBtn');
 function updateFlightHud(f,force=false){
  const distance=metre(f.x);
- if(force||flightDistance.textContent!==distance)flightDistance.textContent=distance;
+ if(force||flightDistance.textContent!==distance){
+  flightDistance.textContent=distance;
+  if(state.current.type==='distance')updateLandingPosition(f.x,state.current.starRules.limit);
+ }
  const label=`방향 보정 ${f.corrections}회`;
  if(force||correctionPips.getAttribute('aria-label')!==label){
   correctionPips.setAttribute('aria-label',label);
@@ -254,10 +257,6 @@ function updateFlightHud(f,force=false){
  }
  const brakeDisabled=f.braked||(training&&!tutorial.canBrake());
  if(flightBrakeButton.disabled!==brakeDisabled)flightBrakeButton.disabled=brakeDisabled;
- if(state.current.type==='distance'&&(force||f.t>=(f.nextLandingCheck||0))){
-  updateLandingGuide(f);
-  f.nextLandingCheck=f.t+.22;
- }
  const description=`${distance} · 보정 ${f.corrections} · ${f.braked?'제동 사용':'제동 가능'}`;
  if(flightInfo.textContent!==description)flightInfo.textContent=description;
 }
@@ -295,13 +294,12 @@ function launch(){
  addLog('발사 · '+p.def.name+' / '+$('#angle').value+'° / 힘 '+$('#power').value+'%');
  renderStatus();autosave();
 }
-function engageBrake(f){f.braked=true;f.vx*=.67;f.vy-=11;}
 function airBrake(){
  const f=flight;
  if(state.flightState!=='flying'||!f||f.braked||(training&&!tutorial.canBrake()))return;
- engageBrake(f);
+ f.braked=true;f.vx*=.67;f.vy-=11;
  if(training)tutorial.braked();
- else banner('⤓ 에어 브레이크! 속도 감소');
+ else if(state.current.type!=='distance')banner('⤓ 에어 브레이크! 속도 감소');
  updateFlightHud(f,true);sparkles('✨',7);sfx('brake');
 }
 function correction(x,y){
@@ -309,7 +307,7 @@ function correction(x,y){
  const stability=effectivePlaneStats(selectedPlane()).stable;
  flight.vx+=x*8*stability;flight.vy+=y*8*stability;flight.corrections--;sfx('correct');
  if(training)tutorial.corrected(flight.t);
- updateFlightHud(flight,state.current.type==='distance');
+ updateFlightHud(flight);
  if(flight.corrections===0)notify('보정 횟수를 모두 사용했습니다');
 }
 function handleObstacles(dt){let c=state.current;if(!flight||!c)return;for(const ob of c.obstacles){if(ob.used||Math.abs(flight.x-ob.x)>ob.width)continue;let contact=false,y=flight.y;switch(ob.kind){case 'tree':case 'pole': contact=y<ob.height;break;case 'cat':contact=y<8;break;case 'line': contact=Math.abs(y-ob.height*.8)<5;break;case 'window':contact=y>15&&y<ob.height;break;case 'bird':case 'kite':case 'balloon':contact=Math.abs(y-ob.alt)<11;break;case 'carwind':case 'alleywind':contact=y<48;break}if(!contact)continue;
@@ -333,7 +331,7 @@ function applyCurrents(f,dt,zones,p){
   }else f.vy-=z.strength*dt*1.7;
  }
 }
-// Estimate with the same wind, currents and brake as the live flight.
+// Estimate a launch distance for the initial angle and power settings.
 function predictLanding(initial,c,p){
  const f={...initial},stop=c.starRules.limit,step=1/30;
  while(f.y>0&&f.x<stop&&f.x>-25&&f.t<FLIGHT_TIMEOUT){
@@ -346,36 +344,28 @@ function predictLanding(initial,c,p){
 function projectedLaunch(c,plane,angle,power){
  return predictLanding({x:0,y:2.7,t:0,...initialVelocity(angle*Math.PI/180,power/100,c,plane,state.boosts.tailwind>0)},c,effectivePlaneStats(plane));
 }
-const landingGuide=$('#landingGuide'),landingCue=$('#landingCue'),landingEstimate=$('#landingEstimate');
-function updateLandingGuide(f=null){
- const c=state.current;
- if(c?.type!=='distance')return;
- const plane=selectedPlane(),r=c.starRules;
- const stats=effectivePlaneStats(plane);
- const predicted=Math.round(f?predictLanding(f,c,stats):
-  projectedLaunch(c,plane,Number($('#angle').value),Number($('#power').value)));
- let message='5★ 구간 예상',tone='good',brakeNow=false;
- if(f?.x>r.fiveEnd){message='착륙 구간 초과';tone='late';}
- else if(predicted<r.five){message='착륙 구간까지 부족';tone='short';}
- else if(predicted>r.fiveEnd){
-  message='착륙 구간 초과 예상';tone='late';
-  if(f&&!f.braked){
-   const braking={...f};
-   engageBrake(braking);
-   const afterBrake=Math.round(predictLanding(braking,c,stats));
-   brakeNow=afterBrake>=r.five&&distanceStars(afterBrake,r)>distanceStars(predicted,r);
-   if(brakeNow)message=afterBrake<=r.fiveEnd?'지금 제동!':'제동으로 감점 줄이기';
-   else if(afterBrake<r.five)message='조금 뒤 제동';
-  }
- }
- landingGuide.dataset.tone=tone;
- if(landingCue.textContent!==message)landingCue.textContent=message;
- landingEstimate.textContent=predicted>=r.limit?'제한선 '+metre(r.limit):'예상 '+metre(predicted);
- landingGuide.style.setProperty('--runway-start',r.five/r.limit*100+'%');
- landingGuide.style.setProperty('--runway-end',r.fiveEnd/r.limit*100+'%');
- landingGuide.style.setProperty('--runway-now',Math.min(100,Math.max(0,f?.x||0)/r.limit*100)+'%');
- landingGuide.style.setProperty('--runway-estimate',predicted/r.limit*100+'%');
- flightBrakeButton.classList.toggle('brake-now',brakeNow);
+const landingGuide=$('#landingGuide'),landingPosition=$('#landingPosition');
+function updateLandingPosition(distance,end){
+ const position=limit(Math.round(distance),0,end);
+ landingPosition.textContent='현재 '+metre(position);
+ landingGuide.style.setProperty('--runway-now',position/end*100+'%');
+}
+function renderLandingBands(r){
+ const stops=[0,r.two,r.three,r.four,r.five,r.fiveEnd,r.fourEnd,r.threeEnd,r.twoEnd,r.limit];
+ const descriptions=[];
+ const bands=stops.slice(1).map((end,i)=>{
+  const start=stops[i],rating=distanceStars((start+end)/2,r),overshoot=start>=r.fiveEnd;
+  const band=document.createElement('span');
+  band.dataset.stars=rating;band.toggleAttribute('data-overshoot',overshoot);
+  band.style.flexGrow=end-start;
+  band.textContent=!overshoot&&(rating===3||rating===5)?rating+'★':rating;
+  descriptions.push(`${overshoot?start+1:start}–${end+(start>=r.five||end===r.limit?0:-1)}m ${rating}별`);
+  return band;
+ });
+ $('#landingBands').replaceChildren(...bands);
+ $('#landingTape').setAttribute('aria-label','장거리 착륙 별점 구간. '+descriptions.join(', '));
+ $('#landingLimit').textContent='제한선 '+metre(r.limit);
+ updateLandingPosition(0,r.limit);
 }
 function updatePracticeAim(angle,power){
  const c=state.current,p=effectivePlaneStats(practicePlane),dt=1/60;
@@ -1131,7 +1121,6 @@ function syncReadyFlightControls(){
  $('#readyPower').value=$('#power').value;
  $('#readyAngleValue').textContent=$('#angle').value+'°';
  $('#readyPowerValue').textContent=$('#power').value+'%';
- if(state.flightState==='ready')updateLandingGuide();
 }
 function cycleReadyPlane(dir){
  const before=selectedPlane()?.key;
@@ -1175,7 +1164,7 @@ function updateDeliveryScreen(){
  $('#readyDetail').textContent=c?`${c.weather.icon} ${c.weather.name} · ${c.pack.name} · 무게 ${(c.weight*100).toFixed(1)}%`:'비행 준비';
  $('#readyGoalChip').textContent=c?(c.type==='accuracy'?metre(c.target):landingRange(c)):'—';
  landingGuide.hidden=c?.type!=='distance'||!(ready||state.flightState==='flying');
- if(c?.type!=='distance')flightBrakeButton.classList.remove('brake-now');
+ if(ready&&c.type==='distance')renderLandingBands(c.starRules);
  $('#readyRoundTip').textContent=c?.scenarioHint||'비행기와 발사 설정을 조정하세요';
  syncReadyFlightControls();
  $('#battleLaunch').disabled=!ready||(training&&!tutorial.canLaunch());

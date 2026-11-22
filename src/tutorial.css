@@ -109,7 +109,7 @@
 #guideStats div { padding: 7px 8px; border-radius: 6px; background: #172f29; }
 #guideStats dt { font-size: 11px; color: #e0dfc8; }
 #guideStats dd { margin: 1px 0 0; font-size: 20px; font-weight: 900; color: #ffdc91; }
-#fieldGuide[data-view="route-tip"] { top: max(157px,calc(env(safe-area-inset-top) + 146px)); }
+#fieldGuide[data-view="route-tip"] { top: max(180px,calc(env(safe-area-inset-top) + 167px)); }
 #fieldGuide[data-view$="-tip"] #guideExit { position: absolute; top: 7px; right: 8px; min-height: 32px; }
 #fieldGuide[data-view$="-tip"] .guide-copy strong { padding-right: 52px; margin-top: 4px; }
 #fieldGuide[data-view$="-tip"] .guide-copy p { margin-top: 12px; }
@@ -151,7 +151,7 @@ body.training-mode #readyFlight input:disabled { opacity: .54; }
   #guideExit { min-height: 33px; }
 }
 @media (max-width: 360px) {
-  #fieldGuide[data-view="route-tip"] { top: max(181px,calc(env(safe-area-inset-top) + 170px)); }
+  #fieldGuide[data-view="route-tip"] { top: max(200px,calc(env(safe-area-inset-top) + 187px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .tutorial-target, #lobbyStart.tutorial-target > span:last-child { animation: none; }
